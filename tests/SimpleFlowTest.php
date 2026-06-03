@@ -268,7 +268,7 @@ class SimpleFlowTest extends TestCase
             ],
             [
                 'dense_vector' => [0.5, 0.6, 0.7, 0.8],
-                'title' => 'doc2: I am fine.',
+                'title' => 'doc2: I am fine. Good!Good!',
             ],
             [
                 'dense_vector' => [0.9, 1.0, 1.1, 1.2],
@@ -300,7 +300,7 @@ class SimpleFlowTest extends TestCase
 
         $sparseSearchReq = SearchHelper::buildSearchRequest(
             $collectionName,
-            ["find"],
+            ["Good"],
             'sparse_vector',
             3,
             [],
@@ -313,7 +313,7 @@ class SimpleFlowTest extends TestCase
         $hybridReq = (new HybridSearchRequest())
             ->setCollectionName($collectionName)
             ->setDbName($dbName)
-            ->setRequests([$sparseSearchReq])
+            ->setRequests([$denseSearchReq])
             ->setRankParams([
                 new KeyValuePair(['key' => 'rrf', 'value' => '{}']),
                 new KeyValuePair(['key' => 'limit', 'value' => '10'])
@@ -321,6 +321,8 @@ class SimpleFlowTest extends TestCase
             ->setOutputFields(['title']);
 
         $hybridResult = self::$client->hybridSearch($hybridReq);
+        echo json_encode($hybridResult->toArray());
+
         $this->assertNotNull($hybridResult);
         $this->assertGreaterThan(0, $hybridResult->getNumQueries());
         $ids = $hybridResult->getIds();
@@ -328,7 +330,6 @@ class SimpleFlowTest extends TestCase
         $scores = $hybridResult->getScores();
         $this->assertNotEmpty($scores);
 
-        echo json_encode($hybridResult->toArray());
 
         // Verify toArray() returns rows with id, score, and output fields
         $rows = $hybridResult->toArray();

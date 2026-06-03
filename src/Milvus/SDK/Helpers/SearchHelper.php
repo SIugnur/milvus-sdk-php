@@ -32,13 +32,6 @@ class SearchHelper
             } elseif (is_string($vector)) {
                 $pv->setType(PlaceholderType::VarChar);
                 $pv->setValues([$vector]);
-            } elseif (is_array($vector) && self::isAssocArray($vector)) {
-                $pv->setType(PlaceholderType::SparseFloatVector);
-                $buf = '';
-                foreach ($vector as $idx => $val) {
-                    $buf .= pack('Vf', $idx, $val);
-                }
-                $pv->setValues([$buf]);
             } else {
                 throw new ParamException('Unsupported vector type');
             }
@@ -70,14 +63,6 @@ class SearchHelper
         }
 
         return $req;
-    }
-
-    private static function isAssocArray(array $array): bool
-    {
-        if ([] === $array) {
-            return false;
-        }
-        return array_keys($array) !== range(0, count($array) - 1);
     }
 
     public static function buildQueryRequest(
