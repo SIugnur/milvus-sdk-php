@@ -2,6 +2,13 @@
     "name": "siugnur/milvus-sdk-php",
     "description": "PHP SDK for Milvus Vector Database",
     "type": "library",
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/SIugnur/milvus-sdk-php.git"
+        }
+    ],
     "require": {
         "php": "^8.0",
         "grpc/grpc": "^1.80",
