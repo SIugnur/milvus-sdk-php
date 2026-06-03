@@ -83,7 +83,7 @@ class ClientTest extends TestCase
     public function testCheckHealth()
     {
         $health = self::$client->checkHealth();
-        $this->assertNotNull($health);
+        $this->assertTrue($health->isHealthy());
         echo "\nHealth check passed";
     }
 
@@ -232,7 +232,7 @@ class ClientTest extends TestCase
         self::$createdCollections[] = $collectionName;
 
         $info = self::$client->describeCollection($collectionName);
-        $this->assertEquals($collectionName, $info->getSchema()->getName());
+        $this->assertEquals($collectionName, $info->getName());
     }
 
     public function testLoadAndReleaseCollection()
@@ -524,8 +524,7 @@ class ClientTest extends TestCase
         ]);
 
         $result = self::$client->insert($collectionName, $fieldsData);
-        $this->assertNotNull($result->getIDs());
-        echo "\nInsert result IDs: " . json_encode($result->getIDs());
+        $this->assertNotEmpty($result->getInsertIds());
 
         self::$client->flush($collectionName);
 
@@ -774,7 +773,7 @@ class ClientTest extends TestCase
         
         try {
             $info = self::$client->describeCollection($nonExistent);
-            $this->assertNull($info->getSchema());
+            $this->assertEmpty($info->getName());
         } catch (MilvusException $e) {
             $this->assertStringContainsString('not found', strtolower($e->getMessage()));
         }

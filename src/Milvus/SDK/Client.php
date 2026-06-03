@@ -121,6 +121,12 @@ use Milvus\Proto\Milvus\GetFlushAllStateRequest;
 use Milvus\Proto\Milvus\GetFlushAllStateResponse;
 use Milvus\SDK\Exceptions\ConnectionException;
 use Milvus\SDK\Exceptions\MilvusException;
+use Milvus\SDK\Response\CollectionInfo;
+use Milvus\SDK\Response\HealthInfo;
+use Milvus\SDK\Response\IndexInfo;
+use Milvus\SDK\Response\MutationResult as ResponseMutationResult;
+use Milvus\SDK\Response\QueryResult;
+use Milvus\SDK\Response\SearchResult;
 
 class Client extends BaseStub
 {
@@ -233,9 +239,9 @@ class Client extends BaseStub
         return $this->call('GetVersion', new GetVersionRequest(), GetVersionResponse::class)->getVersion();
     }
 
-    public function checkHealth(): CheckHealthResponse
+    public function checkHealth(): HealthInfo
     {
-        return $this->call('CheckHealth', new CheckHealthRequest(), CheckHealthResponse::class);
+        return new HealthInfo($this->call('CheckHealth', new CheckHealthRequest(), CheckHealthResponse::class));
     }
 
     public function connect(): ConnectResponse
@@ -318,11 +324,11 @@ class Client extends BaseStub
         return $resp->getValue();
     }
 
-    public function describeCollection(string $name, ?string $dbName = null): DescribeCollectionResponse
+    public function describeCollection(string $name, ?string $dbName = null): CollectionInfo
     {
-        return $this->call('DescribeCollection', (new DescribeCollectionRequest())
+        return new CollectionInfo($this->call('DescribeCollection', (new DescribeCollectionRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($name), DescribeCollectionResponse::class);
+            ->setCollectionName($name), DescribeCollectionResponse::class));
     }
 
     public function loadCollection(string $name, ?string $dbName = null): void
@@ -472,14 +478,14 @@ class Client extends BaseStub
         return $map[$indexType] ?? 'FLAT';
     }
 
-    public function describeIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): DescribeIndexResponse
+    public function describeIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): IndexInfo
     {
         $req = (new DescribeIndexRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName);
         if ($fieldName) $req->setFieldName($fieldName);
         if ($indexName) $req->setIndexName($indexName);
-        return $this->call('DescribeIndex', $req, DescribeIndexResponse::class);
+        return new IndexInfo($this->call('DescribeIndex', $req, DescribeIndexResponse::class));
     }
 
     public function dropIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): void
@@ -521,7 +527,7 @@ class Client extends BaseStub
 
     // ========== Data ==========
 
-    public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
+    public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): ResponseMutationResult
     {
         $numRows = 0;
         if (!empty($fieldsData)) {
@@ -548,10 +554,10 @@ class Client extends BaseStub
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
             ->setNumRows((int)$numRows);
-        return $this->call('Insert', $req, MutationResult::class);
+        return new ResponseMutationResult($this->call('Insert', $req, MutationResult::class));
     }
 
-    public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
+    public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): ResponseMutationResult
     {
         $numRows = 0;
         if (!empty($fieldsData)) {
@@ -578,37 +584,37 @@ class Client extends BaseStub
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
             ->setNumRows((int)$numRows);
-        return $this->call('Upsert', $req, MutationResult::class);
+        return new ResponseMutationResult($this->call('Upsert', $req, MutationResult::class));
     }
 
-    public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): MutationResult
+    public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): ResponseMutationResult
     {
         $req = (new DeleteRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setExpr($expr);
         if ($partitionName) $req->setPartitionName($partitionName);
-        return $this->call('Delete', $req, MutationResult::class);
+        return new ResponseMutationResult($this->call('Delete', $req, MutationResult::class));
     }
 
-    public function search(SearchRequest $request): SearchResults
+    public function search(SearchRequest $request): SearchResult
     {
-        return $this->call('Search', $request, SearchResults::class);
+        return new SearchResult($this->call('Search', $request, SearchResults::class));
     }
 
-    public function hybridSearch(HybridSearchRequest $request): SearchResults
+    public function hybridSearch(HybridSearchRequest $request): SearchResult
     {
-        return $this->call('HybridSearch', $request, SearchResults::class);
+        return new SearchResult($this->call('HybridSearch', $request, SearchResults::class));
     }
 
-    public function query(string $collectionName, string $expr, array $outputFields = [], ?string $dbName = null): QueryResults
+    public function query(string $collectionName, string $expr, array $outputFields = [], ?string $dbName = null): QueryResult
     {
         $req = (new QueryRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setExpr($expr);
         if ($outputFields) $req->setOutputFields($outputFields);
-        return $this->call('Query', $req, QueryResults::class);
+        return new QueryResult($this->call('Query', $req, QueryResults::class));
     }
 
     // ========== Flush ==========
