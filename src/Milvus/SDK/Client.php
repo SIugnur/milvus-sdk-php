@@ -110,6 +110,8 @@ use Milvus\Proto\Milvus\GetCompactionStateResponse;
 use Milvus\Proto\Milvus\TruncateCollectionRequest;
 use Milvus\Proto\Milvus\GetReplicasRequest;
 use Milvus\Proto\Milvus\GetReplicasResponse;
+use Milvus\Proto\Milvus\RunAnalyzerRequest;
+use Milvus\Proto\Milvus\RunAnalyzerResponse;
 use Milvus\Proto\Milvus\TransferReplicaRequest;
 use Milvus\Proto\Milvus\GetPersistentSegmentInfoRequest;
 use Milvus\Proto\Milvus\GetPersistentSegmentInfoResponse;
@@ -863,5 +865,14 @@ class Client extends BaseStub
         return $this->call('GetReplicas', (new GetReplicasRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName), GetReplicasResponse::class);
+    }
+
+    // ========== Analyzer ==========
+
+    public function runAnalyzer(RunAnalyzerRequest $request): \Milvus\SDK\Response\RunAnalyzerResult
+    {
+        return new \Milvus\SDK\Response\RunAnalyzerResult(
+            $this->call('RunAnalyzer', $request, RunAnalyzerResponse::class)
+        );
     }
 }

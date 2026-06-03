@@ -1,19 +1,15 @@
 <?php
 namespace Milvus\SDK\Helpers;
 
-use Milvus\Proto\Common\KeyValuePair;
-use Milvus\Proto\Milvus\InsertRequest;
-use Milvus\Proto\Milvus\UpsertRequest;
 use Milvus\Proto\Schema\FieldData;
 use Milvus\Proto\Schema\FloatArray;
 use Milvus\Proto\Schema\LongArray;
 use Milvus\Proto\Schema\IntArray;
 use Milvus\Proto\Schema\StringArray;
 use Milvus\Proto\Schema\BoolArray;
-use Milvus\Proto\Schema\BytesArray;
 use Milvus\Proto\Schema\DoubleArray;
 use Milvus\Proto\Schema\ScalarField;
-use Milvus\Proto\Schema\IDs;
+use Milvus\Proto\Schema\VectorField;
 use Milvus\Proto\Schema\DataType;
 use Milvus\SDK\Exceptions\ParamException;
 
@@ -77,6 +73,27 @@ class DataHelper
                 $vecField->setDim($dim);
                 $fd->setVectors($vecField);
                 break;
+            case DataType::SparseFloatVector:
+                $contents = [];
+                $dim = 0;
+                foreach ($values as $sparseVec) {
+                    $buf = '';
+                    foreach ($sparseVec as $idx => $val) {
+                        $buf .= pack('Vf', $idx, $val);
+                        if ($idx + 1 > $dim) {
+                            $dim = $idx + 1;
+                        }
+                    }
+                    $contents[] = $buf;
+                }
+                $sparseArray = new \Milvus\Proto\Schema\SparseFloatArray();
+                $sparseArray->setContents($contents);
+                $sparseArray->setDim($dim);
+                $vecField = new \Milvus\Proto\Schema\VectorField();
+                $vecField->setSparseFloatVector($sparseArray);
+                $vecField->setDim($dim);
+                $fd->setVectors($vecField);
+                break;
             case DataType::BinaryVector:
                 $vecField = new \Milvus\Proto\Schema\VectorField();
                 $vecField->setBinaryVector(implode('', $values));
@@ -134,5 +151,153 @@ class DataHelper
             default:
                 return null;
         }
+    }
+
+    /**
+     * Extract values from a FieldData protobuf object.
+     *
+     * @param FieldData $field The field data to extract values from.
+     * @return array The extracted values as a flat array.
+     */
+    public static function extractFieldValues(FieldData $field): array
+    {
+        $scalars = $field->getScalars();
+        if ($scalars !== null) {
+            if ($scalars->getLongData() !== null) {
+                return iterator_to_array($scalars->getLongData()->getData());
+            }
+            if ($scalars->getIntData() !== null) {
+                return iterator_to_array($scalars->getIntData()->getData());
+            }
+            if ($scalars->getStringData() !== null) {
+                return iterator_to_array($scalars->getStringData()->getData());
+            }
+            if ($scalars->getFloatData() !== null) {
+                return iterator_to_array($scalars->getFloatData()->getData());
+            }
+            if ($scalars->getDoubleData() !== null) {
+                return iterator_to_array($scalars->getDoubleData()->getData());
+            }
+            if ($scalars->getBoolData() !== null) {
+                return iterator_to_array($scalars->getBoolData()->getData());
+            }
+            if ($scalars->getBytesData() !== null) {
+                return iterator_to_array($scalars->getBytesData()->getData());
+            }
+            return [];
+        }
+
+        $vectors = $field->getVectors();
+        if ($vectors !== null) {
+            if ($vectors->getFloatVector() !== null) {
+                $flat = iterator_to_array($vectors->getFloatVector()->getData());
+                $dim = $vectors->getDim();
+                if ($dim > 0) {
+                    return array_chunk($flat, (int)$dim);
+                }
+                return $flat;
+            }
+            if ($vectors->getSparseFloatVector() !== null) {
+                return self::extractSparseFloatVectors($vectors);
+            }
+            if ($vectors->getBinaryVector() !== null) {
+                return [$vectors->getBinaryVector()];
+            }
+            if ($vectors->getFloat16Vector() !== null) {
+                return [$vectors->getFloat16Vector()];
+            }
+            if ($vectors->getBfloat16Vector() !== null) {
+                return [$vectors->getBfloat16Vector()];
+            }
+            return [];
+        }
+
+        return [];
+    }
+
+    /**
+     * Convert an array of FieldData objects into row-oriented associative arrays.
+     *
+     * @param FieldData[] $fieldsData Array of FieldData objects.
+     * @return array<int, array<string, mixed>> Rows of data as associative arrays.
+     */
+    public static function fieldDataToRows(array $fieldsData): array
+    {
+        if (empty($fieldsData)) {
+            return [];
+        }
+
+        // Determine row count from the first non-empty field
+        $rowCount = 0;
+        foreach ($fieldsData as $field) {
+            $values = self::extractFieldValues($field);
+            $cnt = count($values);
+            if ($cnt > $rowCount) {
+                $rowCount = $cnt;
+            }
+        }
+
+        if ($rowCount === 0) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($fieldsData as $field) {
+            $fieldName = $field->getFieldName();
+            $values = self::extractFieldValues($field);
+            for ($i = 0; $i < $rowCount && $i < count($values); $i++) {
+                $result[$i][$fieldName] = $values[$i];
+            }
+            // Pad missing rows for this field with null
+            for ($i = count($values); $i < $rowCount; $i++) {
+                $result[$i][$fieldName] = null;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Extract sparse float vectors from a VectorField.
+     *
+     * Sparse vectors are stored as packed bytes in contents.
+     * Each element is a serialized SparseFloatArray with contents entries.
+     *
+     * @param VectorField $vectors The vector field containing sparse vectors.
+     * @return array<int, array<int, float>> Array of sparse vectors (each is [dim => value]).
+     */
+    private static function extractSparseFloatVectors(VectorField $vectors): array
+    {
+        $sparse = $vectors->getSparseFloatVector();
+        if ($sparse === null) {
+            return [];
+        }
+
+        $result = [];
+        $contents = $sparse->getContents();
+        if ($contents === null) {
+            return [];
+        }
+
+        foreach ($contents as $content) {
+            // Sparse vector is serialized as: [num_pairs][dim1:value1][dim2:value2]...
+            // Using unpack with proper format
+            $packed = $content;
+            $numPairs = unpack('V', substr($packed, 0, 4))[1];
+            $vec = [];
+            $offset = 4;
+            for ($j = 0; $j < $numPairs; $j++) {
+                if ($offset + 8 > strlen($packed)) {
+                    break;
+                }
+                $dim = unpack('V', substr($packed, $offset, 4))[1];
+                $value = unpack('f', substr($packed, $offset + 4, 4))[1];
+                $vec[$dim] = $value;
+                $offset += 8;
+            }
+            $result[] = $vec;
+        }
+
+        return $result;
     }
 }

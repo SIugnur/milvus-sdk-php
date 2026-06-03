@@ -2,6 +2,7 @@
 namespace Milvus\SDK\Response;
 
 use Milvus\Proto\Milvus\SearchResults as ProtoSearchResults;
+use Milvus\SDK\Helpers\DataHelper;
 
 class SearchResult
 {
@@ -46,6 +47,50 @@ class SearchResult
     {
         $scores = $this->raw->getResults()?->getScores();
         return $scores ? iterator_to_array($scores) : [];
+    }
+
+    /**
+     * Convert search results to an array of associative arrays (rows).
+     *
+     * Each row includes the field values, plus "id" and "score" keys.
+     *
+     * @return array<int, array<string, mixed>> Rows of data.
+     */
+    public function toArray(): array
+    {
+        $results = $this->raw->getResults();
+        if ($results === null) {
+            return [];
+        }
+
+        $fieldsData = $results->getFieldsData();
+        $fieldsData = $fieldsData instanceof \Google\Protobuf\Internal\RepeatedField
+            ? iterator_to_array($fieldsData)
+            : (array) $fieldsData;
+
+        $rows = DataHelper::fieldDataToRows($fieldsData);
+
+        // Attach IDs and scores to each row
+        $ids = $this->getIds();
+        $scores = $this->getScores();
+        $topks = $results->getTopks();
+        $topks = $topks ? iterator_to_array($topks) : [];
+
+        $offset = 0;
+        $numQueries = $this->getNumQueries();
+        for ($q = 0; $q < $numQueries; $q++) {
+            $k = $topks[$q] ?? 0;
+            for ($j = 0; $j < $k; $j++) {
+                $idx = $offset + $j;
+                if (isset($rows[$idx])) {
+                    $rows[$idx]['id'] = $ids[$idx] ?? null;
+                    $rows[$idx]['score'] = $scores[$idx] ?? null;
+                }
+            }
+            $offset += $k;
+        }
+
+        return $rows;
     }
 
     public function getRaw(): ProtoSearchResults

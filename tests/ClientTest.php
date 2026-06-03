@@ -1,6 +1,7 @@
 <?php
 namespace Milvus\SDK\Tests;
 
+use Milvus\Proto\Milvus\RunAnalyzerRequest;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
 use Milvus\SDK\Constants\IndexType;
@@ -914,5 +915,26 @@ class ClientTest extends TestCase
     {
         $this->assertEquals(0, OperateUserRoleType::AddUserToRole);
         $this->assertEquals(1, OperateUserRoleType::RemoveUserFromRole);
+    }
+
+    public function testRunAnalyzer()
+    {
+        $runAnalyzerResult = self::$client->runAnalyzer(new RunAnalyzerRequest([
+            'placeholder' => ['2026年6月文具可以签领了，请已购买文具的同事留意到【前台】签领~'],
+            'analyzer_params' => json_encode([
+                'tokenizer' => [
+                    'type' => 'language_identifier',
+                    'identifier' => 'whatlang',
+                    'analyzers' => [
+                        'default' => ['tokenizer' => 'icu'],
+                        'English' => ['type' => 'english'],
+                        'Mandarin' => ['type' => 'chinese']
+                    ]
+                ]
+            ])
+        ]));
+        foreach ($runAnalyzerResult->getResults() as $result) {
+            print_r($result);
+        }
     }
 }

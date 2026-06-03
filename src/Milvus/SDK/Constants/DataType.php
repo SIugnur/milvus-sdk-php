@@ -17,8 +17,8 @@ final class DataType
     const JSON = 23;
     const BinaryVector = 100;
     const FloatVector = 101;
-    const SparseFloatVector = 102;
-    const Int8Vector = 103;
-    const Float16Vector = 104;
-    const BFloat16Vector = 105;
+    const Float16Vector = 102;
+    const BFloat16Vector = 103;
+    const SparseFloatVector = 104;
+    const Int8Vector = 105;
 }
