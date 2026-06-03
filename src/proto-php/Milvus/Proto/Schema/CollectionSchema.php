@@ -68,22 +68,6 @@ class CollectionSchema extends \Google\Protobuf\Internal\Message
      * 0 when the collection is created or the collection schema is updated before 2.6.5.
      * the name dbName and description take no effect to it.
      *
-     * Generated from protobuf field <code>string external_source = 11;</code>
-     */
-    protected $external_source = '';
-    /**
-     * Generated from protobuf field <code>string external_spec = 12;</code>
-     */
-    protected $external_spec = '';
-    /**
-     * Generated from protobuf field <code>bool do_physical_backfill = 13;</code>
-     */
-    protected $do_physical_backfill = false;
-    /**
-     * Generated from protobuf field <code>repeated int64 file_resource_ids = 14;</code>
-     */
-    private $file_resource_ids;
-    /**
      * Generated from protobuf field <code>bool enable_namespace = 15;</code>
      */
     protected $enable_namespace = false;
@@ -107,13 +91,9 @@ class CollectionSchema extends \Google\Protobuf\Internal\Message
      *     @type \Milvus\Proto\Schema\StructArrayFieldSchema[] $struct_array_fields
      *     @type int $version
      *           The version of current collection schema updates, increment every time the schema content is updating, 
-     *     @type string $external_source
+     *     @type bool $enable_namespace
      *           0 when the collection is created or the collection schema is updated before 2.6.5.
      *           the name dbName and description take no effect to it.
-     *     @type string $external_spec
-     *     @type bool $do_physical_backfill
-     *     @type int[]|string[] $file_resource_ids
-     *     @type bool $enable_namespace
      * }
      */
     public function __construct($data = NULL) {
@@ -361,96 +341,6 @@ class CollectionSchema extends \Google\Protobuf\Internal\Message
      * 0 when the collection is created or the collection schema is updated before 2.6.5.
      * the name dbName and description take no effect to it.
      *
-     * Generated from protobuf field <code>string external_source = 11;</code>
-     * @return string
-     */
-    public function getExternalSource()
-    {
-        return $this->external_source;
-    }
-
-    /**
-     * 0 when the collection is created or the collection schema is updated before 2.6.5.
-     * the name dbName and description take no effect to it.
-     *
-     * Generated from protobuf field <code>string external_source = 11;</code>
-     * @param string $var
-     * @return $this
-     */
-    public function setExternalSource(string $var)
-    {
-        GPBUtil::checkString($var, true);
-        $this->external_source = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>string external_spec = 12;</code>
-     * @return string
-     */
-    public function getExternalSpec()
-    {
-        return $this->external_spec;
-    }
-
-    /**
-     * Generated from protobuf field <code>string external_spec = 12;</code>
-     * @param string $var
-     * @return $this
-     */
-    public function setExternalSpec(string $var)
-    {
-        GPBUtil::checkString($var, true);
-        $this->external_spec = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>bool do_physical_backfill = 13;</code>
-     * @return bool
-     */
-    public function getDoPhysicalBackfill()
-    {
-        return $this->do_physical_backfill;
-    }
-
-    /**
-     * Generated from protobuf field <code>bool do_physical_backfill = 13;</code>
-     * @param bool $var
-     * @return $this
-     */
-    public function setDoPhysicalBackfill(bool $var)
-    {
-        $this->do_physical_backfill = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated int64 file_resource_ids = 14;</code>
-     * @return RepeatedField<int>|RepeatedField<string>
-     */
-    public function getFileResourceIds()
-    {
-        return $this->file_resource_ids;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated int64 file_resource_ids = 14;</code>
-     * @param int[]|string[] $var
-     * @return $this
-     */
-    public function setFileResourceIds(array|RepeatedField $var)
-    {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::INT64);
-        $this->file_resource_ids = $arr;
-
-        return $this;
-    }
-
-    /**
      * Generated from protobuf field <code>bool enable_namespace = 15;</code>
      * @return bool
      */
@@ -460,6 +350,9 @@ class CollectionSchema extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * 0 when the collection is created or the collection schema is updated before 2.6.5.
+     * the name dbName and description take no effect to it.
+     *
      * Generated from protobuf field <code>bool enable_namespace = 15;</code>
      * @param bool $var
      * @return $this

@@ -39,8 +39,7 @@ class MsgBase extends \Google\Protobuf\Internal\Message
      */
     private $properties;
     /**
-     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7 [deprecated = true];</code>
-     * @deprecated
+     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7;</code>
      */
     protected $replicateInfo = null;
 
@@ -197,41 +196,31 @@ class MsgBase extends \Google\Protobuf\Internal\Message
     }
 
     /**
-     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7 [deprecated = true];</code>
+     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7;</code>
      * @return \Milvus\Proto\Common\ReplicateInfo|null
-     * @deprecated
      */
     public function getReplicateInfo()
     {
-        if (isset($this->replicateInfo)) {
-            @trigger_error('replicateInfo is deprecated.', E_USER_DEPRECATED);
-        }
         return $this->replicateInfo;
     }
 
     public function hasReplicateInfo()
     {
-        if (isset($this->replicateInfo)) {
-            @trigger_error('replicateInfo is deprecated.', E_USER_DEPRECATED);
-        }
         return isset($this->replicateInfo);
     }
 
     public function clearReplicateInfo()
     {
-        @trigger_error('replicateInfo is deprecated.', E_USER_DEPRECATED);
         unset($this->replicateInfo);
     }
 
     /**
-     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7 [deprecated = true];</code>
+     * Generated from protobuf field <code>.milvus.proto.common.ReplicateInfo replicateInfo = 7;</code>
      * @param \Milvus\Proto\Common\ReplicateInfo $var
      * @return $this
-     * @deprecated
      */
     public function setReplicateInfo(\Milvus\Proto\Common\ReplicateInfo|null $var)
     {
-        @trigger_error('replicateInfo is deprecated.', E_USER_DEPRECATED);
         $this->replicateInfo = $var;
 
         return $this;

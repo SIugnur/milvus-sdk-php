@@ -78,12 +78,6 @@ class DataType
      */
     const Timestamptz = 26;
     /**
-     * Molecular data type
-     *
-     * Generated from protobuf enum <code>Mol = 27;</code>
-     */
-    const Mol = 27;
-    /**
      * Generated from protobuf enum <code>BinaryVector = 100;</code>
      */
     const BinaryVector = 100;
@@ -138,7 +132,6 @@ class DataType
         self::Geometry => 'Geometry',
         self::Text => 'Text',
         self::Timestamptz => 'Timestamptz',
-        self::Mol => 'Mol',
         self::BinaryVector => 'BinaryVector',
         self::FloatVector => 'FloatVector',
         self::Float16Vector => 'Float16Vector',

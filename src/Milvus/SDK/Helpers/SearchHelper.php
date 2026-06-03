@@ -32,6 +32,13 @@ class SearchHelper
             } elseif (is_string($vector)) {
                 $pv->setType(PlaceholderType::VarChar);
                 $pv->setValues([$vector]);
+            } elseif (is_array($vector) && self::isAssocArray($vector)) {
+                $pv->setType(PlaceholderType::SparseFloatVector);
+                $buf = '';
+                foreach ($vector as $idx => $val) {
+                    $buf .= pack('Vf', $idx, $val);
+                }
+                $pv->setValues([$buf]);
             } else {
                 throw new ParamException('Unsupported vector type');
             }
@@ -43,9 +50,7 @@ class SearchHelper
 
         $searchParams = [new KeyValuePair(['key' => 'anns_field', 'value' => $annsField])];
         $searchParams[] = new KeyValuePair(['key' => 'topk', 'value' => (string)$topK]);
-        if (!empty($params)) {
-            $searchParams[] = new KeyValuePair(['key' => 'params', 'value' => json_encode($params)]);
-        }
+        $searchParams[] = new KeyValuePair(['key' => 'params', 'value' => json_encode((object)$params)]);
 
         $req = new SearchRequest();
         $req->setCollectionName($collectionName);
@@ -65,6 +70,14 @@ class SearchHelper
         }
 
         return $req;
+    }
+
+    private static function isAssocArray(array $array): bool
+    {
+        if ([] === $array) {
+            return false;
+        }
+        return array_keys($array) !== range(0, count($array) - 1);
     }
 
     public static function buildQueryRequest(

@@ -111,10 +111,6 @@ class SearchRequest extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>.milvus.proto.common.Highlighter highlighter = 21;</code>
      */
     protected $highlighter = null;
-    /**
-     * Generated from protobuf field <code>.milvus.proto.common.SearchAggregationSpec search_aggregation = 23;</code>
-     */
-    protected $search_aggregation = null;
     protected $search_input;
 
     /**
@@ -155,7 +151,6 @@ class SearchRequest extends \Google\Protobuf\Internal\Message
      *     @type \Milvus\Proto\Schema\FunctionScore $function_score
      *     @type string $namespace
      *     @type \Milvus\Proto\Common\Highlighter $highlighter
-     *     @type \Milvus\Proto\Common\SearchAggregationSpec $search_aggregation
      * }
      */
     public function __construct($data = NULL) {
@@ -732,37 +727,6 @@ class SearchRequest extends \Google\Protobuf\Internal\Message
     public function setHighlighter(\Milvus\Proto\Common\Highlighter|null $var)
     {
         $this->highlighter = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.common.SearchAggregationSpec search_aggregation = 23;</code>
-     * @return \Milvus\Proto\Common\SearchAggregationSpec|null
-     */
-    public function getSearchAggregation()
-    {
-        return $this->search_aggregation;
-    }
-
-    public function hasSearchAggregation()
-    {
-        return isset($this->search_aggregation);
-    }
-
-    public function clearSearchAggregation()
-    {
-        unset($this->search_aggregation);
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.common.SearchAggregationSpec search_aggregation = 23;</code>
-     * @param \Milvus\Proto\Common\SearchAggregationSpec $var
-     * @return $this
-     */
-    public function setSearchAggregation(\Milvus\Proto\Common\SearchAggregationSpec|null $var)
-    {
-        $this->search_aggregation = $var;
 
         return $this;
     }

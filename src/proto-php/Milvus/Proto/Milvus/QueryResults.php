@@ -40,10 +40,6 @@ class QueryResults extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>string primary_field_name = 6;</code>
      */
     protected $primary_field_name = '';
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.milvus.ElementIndices element_indices = 7;</code>
-     */
-    private $element_indices;
 
     /**
      * Constructor.
@@ -58,7 +54,6 @@ class QueryResults extends \Google\Protobuf\Internal\Message
      *     @type int|string $session_ts
      *           for session-like operation like iterator
      *     @type string $primary_field_name
-     *     @type \Milvus\Proto\Milvus\ElementIndices[] $element_indices
      * }
      */
     public function __construct($data = NULL) {
@@ -207,28 +202,6 @@ class QueryResults extends \Google\Protobuf\Internal\Message
     {
         GPBUtil::checkString($var, true);
         $this->primary_field_name = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.milvus.ElementIndices element_indices = 7;</code>
-     * @return RepeatedField<\Milvus\Proto\Milvus\ElementIndices>
-     */
-    public function getElementIndices()
-    {
-        return $this->element_indices;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.milvus.ElementIndices element_indices = 7;</code>
-     * @param \Milvus\Proto\Milvus\ElementIndices[] $var
-     * @return $this
-     */
-    public function setElementIndices(array|RepeatedField $var)
-    {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Milvus\Proto\Milvus\ElementIndices::class);
-        $this->element_indices = $arr;
 
         return $this;
     }

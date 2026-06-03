@@ -74,18 +74,6 @@ class SearchResultData extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>.milvus.proto.schema.LongArray element_indices = 15;</code>
      */
     protected $element_indices = null;
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.FieldData group_by_field_values = 17;</code>
-     */
-    private $group_by_field_values;
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.AggBucket agg_buckets = 18;</code>
-     */
-    private $agg_buckets;
-    /**
-     * Generated from protobuf field <code>repeated int64 agg_topks = 19;</code>
-     */
-    private $agg_topks;
 
     /**
      * Constructor.
@@ -108,9 +96,6 @@ class SearchResultData extends \Google\Protobuf\Internal\Message
      *     @type string $primary_field_name
      *     @type \Milvus\Proto\Common\HighlightResult[] $highlight_results
      *     @type \Milvus\Proto\Schema\LongArray $element_indices
-     *     @type \Milvus\Proto\Schema\FieldData[] $group_by_field_values
-     *     @type \Milvus\Proto\Schema\AggBucket[] $agg_buckets
-     *     @type int[]|string[] $agg_topks
      * }
      */
     public function __construct($data = NULL) {
@@ -480,72 +465,6 @@ class SearchResultData extends \Google\Protobuf\Internal\Message
     public function setElementIndices(\Milvus\Proto\Schema\LongArray|null $var)
     {
         $this->element_indices = $var;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.FieldData group_by_field_values = 17;</code>
-     * @return RepeatedField<\Milvus\Proto\Schema\FieldData>
-     */
-    public function getGroupByFieldValues()
-    {
-        return $this->group_by_field_values;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.FieldData group_by_field_values = 17;</code>
-     * @param \Milvus\Proto\Schema\FieldData[] $var
-     * @return $this
-     */
-    public function setGroupByFieldValues(array|RepeatedField $var)
-    {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Milvus\Proto\Schema\FieldData::class);
-        $this->group_by_field_values = $arr;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.AggBucket agg_buckets = 18;</code>
-     * @return RepeatedField<\Milvus\Proto\Schema\AggBucket>
-     */
-    public function getAggBuckets()
-    {
-        return $this->agg_buckets;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated .milvus.proto.schema.AggBucket agg_buckets = 18;</code>
-     * @param \Milvus\Proto\Schema\AggBucket[] $var
-     * @return $this
-     */
-    public function setAggBuckets(array|RepeatedField $var)
-    {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Milvus\Proto\Schema\AggBucket::class);
-        $this->agg_buckets = $arr;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated int64 agg_topks = 19;</code>
-     * @return RepeatedField<int>|RepeatedField<string>
-     */
-    public function getAggTopks()
-    {
-        return $this->agg_topks;
-    }
-
-    /**
-     * Generated from protobuf field <code>repeated int64 agg_topks = 19;</code>
-     * @param int[]|string[] $var
-     * @return $this
-     */
-    public function setAggTopks(array|RepeatedField $var)
-    {
-        $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::INT64);
-        $this->agg_topks = $arr;
 
         return $this;
     }

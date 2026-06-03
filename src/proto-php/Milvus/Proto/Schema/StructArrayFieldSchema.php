@@ -34,10 +34,6 @@ class StructArrayFieldSchema extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>repeated .milvus.proto.common.KeyValuePair type_params = 5;</code>
      */
     private $type_params;
-    /**
-     * Generated from protobuf field <code>bool nullable = 6;</code>
-     */
-    protected $nullable = false;
 
     /**
      * Constructor.
@@ -50,7 +46,6 @@ class StructArrayFieldSchema extends \Google\Protobuf\Internal\Message
      *     @type string $description
      *     @type \Milvus\Proto\Schema\FieldSchema[] $fields
      *     @type \Milvus\Proto\Common\KeyValuePair[] $type_params
-     *     @type bool $nullable
      * }
      */
     public function __construct($data = NULL) {
@@ -164,27 +159,6 @@ class StructArrayFieldSchema extends \Google\Protobuf\Internal\Message
     {
         $arr = GPBUtil::checkRepeatedField($var, \Google\Protobuf\Internal\GPBType::MESSAGE, \Milvus\Proto\Common\KeyValuePair::class);
         $this->type_params = $arr;
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>bool nullable = 6;</code>
-     * @return bool
-     */
-    public function getNullable()
-    {
-        return $this->nullable;
-    }
-
-    /**
-     * Generated from protobuf field <code>bool nullable = 6;</code>
-     * @param bool $var
-     * @return $this
-     */
-    public function setNullable(bool $var)
-    {
-        $this->nullable = $var;
 
         return $this;
     }

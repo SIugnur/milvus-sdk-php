@@ -391,7 +391,7 @@ class MsgType
      */
     const AllocTimestamp = 1211;
     /**
-     * Generated from protobuf enum <code>Replicate = 1212 [deprecated = true];</code>
+     * Generated from protobuf enum <code>Replicate = 1212;</code>
      */
     const Replicate = 1212;
     /**
@@ -540,62 +540,6 @@ class MsgType
      * Generated from protobuf enum <code>AlterWAL = 2000;</code>
      */
     const AlterWAL = 2000;
-    /**
-     * Snapshot 
-     *
-     * Generated from protobuf enum <code>CreateSnapshot = 2100;</code>
-     */
-    const CreateSnapshot = 2100;
-    /**
-     * Generated from protobuf enum <code>DropSnapshot = 2101;</code>
-     */
-    const DropSnapshot = 2101;
-    /**
-     * Generated from protobuf enum <code>ListSnapshots = 2102;</code>
-     */
-    const ListSnapshots = 2102;
-    /**
-     * Generated from protobuf enum <code>DescribeSnapshot = 2103;</code>
-     */
-    const DescribeSnapshot = 2103;
-    /**
-     * Generated from protobuf enum <code>RestoreSnapshot = 2104;</code>
-     */
-    const RestoreSnapshot = 2104;
-    /**
-     * Generated from protobuf enum <code>GetRestoreSnapshotState = 2105;</code>
-     */
-    const GetRestoreSnapshotState = 2105;
-    /**
-     * Generated from protobuf enum <code>ListRestoreSnapshotJobs = 2106;</code>
-     */
-    const ListRestoreSnapshotJobs = 2106;
-    /**
-     * Generated from protobuf enum <code>PinSnapshotData = 2107;</code>
-     */
-    const PinSnapshotData = 2107;
-    /**
-     * Generated from protobuf enum <code>UnpinSnapshotData = 2108;</code>
-     */
-    const UnpinSnapshotData = 2108;
-    /**
-     * Generated from protobuf enum <code>AlterCollectionSchema = 2200;</code>
-     */
-    const AlterCollectionSchema = 2200;
-    /**
-     * External Collection 
-     *
-     * Generated from protobuf enum <code>RefreshExternalCollection = 2300;</code>
-     */
-    const RefreshExternalCollection = 2300;
-    /**
-     * Generated from protobuf enum <code>GetRefreshExternalCollectionProgress = 2301;</code>
-     */
-    const GetRefreshExternalCollectionProgress = 2301;
-    /**
-     * Generated from protobuf enum <code>ListRefreshExternalCollectionJobs = 2302;</code>
-     */
-    const ListRefreshExternalCollectionJobs = 2302;
 
     private static $valueToName = [
         self::Undefined => 'Undefined',
@@ -721,19 +665,6 @@ class MsgType
         self::DescribeDatabase => 'DescribeDatabase',
         self::AddCollectionField => 'AddCollectionField',
         self::AlterWAL => 'AlterWAL',
-        self::CreateSnapshot => 'CreateSnapshot',
-        self::DropSnapshot => 'DropSnapshot',
-        self::ListSnapshots => 'ListSnapshots',
-        self::DescribeSnapshot => 'DescribeSnapshot',
-        self::RestoreSnapshot => 'RestoreSnapshot',
-        self::GetRestoreSnapshotState => 'GetRestoreSnapshotState',
-        self::ListRestoreSnapshotJobs => 'ListRestoreSnapshotJobs',
-        self::PinSnapshotData => 'PinSnapshotData',
-        self::UnpinSnapshotData => 'UnpinSnapshotData',
-        self::AlterCollectionSchema => 'AlterCollectionSchema',
-        self::RefreshExternalCollection => 'RefreshExternalCollection',
-        self::GetRefreshExternalCollectionProgress => 'GetRefreshExternalCollectionProgress',
-        self::ListRefreshExternalCollectionJobs => 'ListRefreshExternalCollectionJobs',
     ];
 
     public static function name($value)

@@ -1,6 +1,8 @@
 <?php
 namespace Milvus\SDK\Tests;
 
+use Milvus\Proto\Schema\FunctionSchema;
+use Milvus\Proto\Schema\FunctionType;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
 use Milvus\SDK\Helpers\DataHelper;
@@ -238,7 +240,16 @@ class SimpleFlowTest extends TestCase
                     ->setDataType(\Milvus\Proto\Schema\DataType::VarChar)
                     ->setTypeParams([
                         (new \Milvus\Proto\Common\KeyValuePair())->setKey('max_length')->setValue('256'),
+                        (new \Milvus\Proto\Common\KeyValuePair())->setKey('enable_analyzer')->setValue(true),
                     ]),
+            ])
+            ->setFunctions([
+                new FunctionSchema([
+                    'name' => 'convert_sparse_vector_function',
+                    'type' => FunctionType::BM25,
+                    'input_field_names' => ['title'],
+                    'output_field_names' => ['sparse_vector'],
+                ])
             ]);
 
         self::$client->createCollection($collectionName, $schema->serializeToString(), $dbName);
@@ -246,29 +257,25 @@ class SimpleFlowTest extends TestCase
 
         // 3. Create indexes for both vector fields
         self::$client->createIndex($collectionName, 'dense_vector', 'FLAT', $dbName);
-        self::$client->createIndex($collectionName, 'sparse_vector', 'SPARSE_INVERTED_INDEX', $dbName, ['metric_type' => 'IP']);
+        self::$client->createIndex($collectionName, 'sparse_vector', 'SPARSE_INVERTED_INDEX', $dbName, ['metric_type' => 'BM25']);
         self::$client->loadCollection($collectionName, $dbName);
 
         // 4. Insert data
         $fieldsData = DataHelper::recordsToFieldData([
             [
                 'dense_vector' => [0.1, 0.2, 0.3, 0.4],
-                'sparse_vector' => [0 => 0.5, 2 => 0.8],
-                'title' => 'doc1',
+                'title' => 'Who are you?',
             ],
             [
                 'dense_vector' => [0.5, 0.6, 0.7, 0.8],
-                'sparse_vector' => [1 => 0.3, 3 => 0.9],
-                'title' => 'doc2',
+                'title' => 'doc2: I am fine.',
             ],
             [
                 'dense_vector' => [0.9, 1.0, 1.1, 1.2],
-                'sparse_vector' => [0 => 0.1, 4 => 0.7],
-                'title' => 'doc3',
+                'title' => 'doc3: You are welcome. Thank you.',
             ],
         ], [
             'dense_vector' => DataType::FloatVector,
-            'sparse_vector' => DataType::SparseFloatVector,
             'title' => DataType::VarChar,
         ]);
 
@@ -286,18 +293,18 @@ class SimpleFlowTest extends TestCase
             'dense_vector',
             3,
             ['nprobe' => 10],
-            ['title'],
+            [],
             '',
             $dbName
         );
 
         $sparseSearchReq = SearchHelper::buildSearchRequest(
             $collectionName,
-            [[0.1, 0.2, 0.3, 0.4]],
+            ["find"],
             'sparse_vector',
             3,
             [],
-            ['title'],
+            [],
             '',
             $dbName
         );
@@ -306,7 +313,7 @@ class SimpleFlowTest extends TestCase
         $hybridReq = (new HybridSearchRequest())
             ->setCollectionName($collectionName)
             ->setDbName($dbName)
-            ->setRequests([$denseSearchReq, $sparseSearchReq])
+            ->setRequests([$sparseSearchReq])
             ->setRankParams([
                 new KeyValuePair(['key' => 'rrf', 'value' => '{}']),
                 new KeyValuePair(['key' => 'limit', 'value' => '10'])
@@ -321,7 +328,7 @@ class SimpleFlowTest extends TestCase
         $scores = $hybridResult->getScores();
         $this->assertNotEmpty($scores);
 
-        echo json_encode(DataHelper::fieldDataToRows((array)$hybridResult->getResults()->getFieldsData()));
+        echo json_encode($hybridResult->toArray());
 
         // Verify toArray() returns rows with id, score, and output fields
         $rows = $hybridResult->toArray();
@@ -402,5 +409,19 @@ class SimpleFlowTest extends TestCase
         self::$client->dropDatabase($dbName);
         $dbs = self::$client->listDatabases();
         $this->assertNotContains($dbName, $dbs);
+    }
+
+    public function test_deleteAll()
+    {
+        $listDatabases = self::$client->listDatabases();
+        foreach ($listDatabases as $listDatabase) {
+            if (str_starts_with($listDatabase, 'test_')) {
+                $showCollections = self::$client->showCollections($listDatabase);
+                foreach ($showCollections as $showCollection) {
+                    self::$client->dropCollection($showCollection, $listDatabase);
+                }
+                self::$client->dropDatabase($listDatabase);
+            }
+        }
     }
 }

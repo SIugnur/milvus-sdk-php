@@ -317,45 +317,9 @@ class ObjectPrivilege
      */
     const PrivilegeUpdateReplicateConfiguration = 78;
     /**
-     * Generated from protobuf enum <code>PrivilegeCreateSnapshot = 79;</code>
-     */
-    const PrivilegeCreateSnapshot = 79;
-    /**
-     * Generated from protobuf enum <code>PrivilegeDropSnapshot = 80;</code>
-     */
-    const PrivilegeDropSnapshot = 80;
-    /**
-     * Generated from protobuf enum <code>PrivilegeDescribeSnapshot = 81;</code>
-     */
-    const PrivilegeDescribeSnapshot = 81;
-    /**
-     * Generated from protobuf enum <code>PrivilegeListSnapshots = 82;</code>
-     */
-    const PrivilegeListSnapshots = 82;
-    /**
-     * Generated from protobuf enum <code>PrivilegeRestoreSnapshot = 83;</code>
-     */
-    const PrivilegeRestoreSnapshot = 83;
-    /**
-     * Generated from protobuf enum <code>PrivilegeAlterCollectionSchema = 84;</code>
-     */
-    const PrivilegeAlterCollectionSchema = 84;
-    /**
      * Generated from protobuf enum <code>PrivilegeGetReplicateConfiguration = 85;</code>
      */
     const PrivilegeGetReplicateConfiguration = 85;
-    /**
-     * Generated from protobuf enum <code>PrivilegeRefreshExternalCollection = 86;</code>
-     */
-    const PrivilegeRefreshExternalCollection = 86;
-    /**
-     * Generated from protobuf enum <code>PrivilegePinSnapshotData = 87;</code>
-     */
-    const PrivilegePinSnapshotData = 87;
-    /**
-     * Generated from protobuf enum <code>PrivilegeUnpinSnapshotData = 88;</code>
-     */
-    const PrivilegeUnpinSnapshotData = 88;
 
     private static $valueToName = [
         self::PrivilegeAll => 'PrivilegeAll',
@@ -434,16 +398,7 @@ class ObjectPrivilege
         self::PrivilegeRemoveFileResource => 'PrivilegeRemoveFileResource',
         self::PrivilegeListFileResources => 'PrivilegeListFileResources',
         self::PrivilegeUpdateReplicateConfiguration => 'PrivilegeUpdateReplicateConfiguration',
-        self::PrivilegeCreateSnapshot => 'PrivilegeCreateSnapshot',
-        self::PrivilegeDropSnapshot => 'PrivilegeDropSnapshot',
-        self::PrivilegeDescribeSnapshot => 'PrivilegeDescribeSnapshot',
-        self::PrivilegeListSnapshots => 'PrivilegeListSnapshots',
-        self::PrivilegeRestoreSnapshot => 'PrivilegeRestoreSnapshot',
-        self::PrivilegeAlterCollectionSchema => 'PrivilegeAlterCollectionSchema',
         self::PrivilegeGetReplicateConfiguration => 'PrivilegeGetReplicateConfiguration',
-        self::PrivilegeRefreshExternalCollection => 'PrivilegeRefreshExternalCollection',
-        self::PrivilegePinSnapshotData => 'PrivilegePinSnapshotData',
-        self::PrivilegeUnpinSnapshotData => 'PrivilegeUnpinSnapshotData',
     ];
 
     public static function name($value)

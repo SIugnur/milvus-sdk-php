@@ -10,7 +10,6 @@ use Google\Protobuf\Internal\GPBUtil;
 use Google\Protobuf\RepeatedField;
 
 /**
- * @deprecated
  * Generated from protobuf message <code>milvus.proto.msg.ReplicateMsg</code>
  */
 class ReplicateMsg extends \Google\Protobuf\Internal\Message

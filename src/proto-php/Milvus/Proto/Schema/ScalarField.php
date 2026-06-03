@@ -34,8 +34,6 @@ class ScalarField extends \Google\Protobuf\Internal\Message
      *     @type \Milvus\Proto\Schema\GeometryArray $geometry_data
      *     @type \Milvus\Proto\Schema\TimestamptzArray $timestamptz_data
      *     @type \Milvus\Proto\Schema\GeometryWktArray $geometry_wkt_data
-     *     @type \Milvus\Proto\Schema\MolArray $mol_data
-     *     @type \Milvus\Proto\Schema\MolSmilesArray $mol_smiles_data
      * }
      */
     public function __construct($data = NULL) {
@@ -351,58 +349,6 @@ class ScalarField extends \Google\Protobuf\Internal\Message
     public function setGeometryWktData(\Milvus\Proto\Schema\GeometryWktArray|null $var)
     {
         $this->writeOneof(12, $var);
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.schema.MolArray mol_data = 13;</code>
-     * @return \Milvus\Proto\Schema\MolArray|null
-     */
-    public function getMolData()
-    {
-        return $this->readOneof(13);
-    }
-
-    public function hasMolData()
-    {
-        return $this->hasOneof(13);
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.schema.MolArray mol_data = 13;</code>
-     * @param \Milvus\Proto\Schema\MolArray $var
-     * @return $this
-     */
-    public function setMolData(\Milvus\Proto\Schema\MolArray|null $var)
-    {
-        $this->writeOneof(13, $var);
-
-        return $this;
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.schema.MolSmilesArray mol_smiles_data = 14;</code>
-     * @return \Milvus\Proto\Schema\MolSmilesArray|null
-     */
-    public function getMolSmilesData()
-    {
-        return $this->readOneof(14);
-    }
-
-    public function hasMolSmilesData()
-    {
-        return $this->hasOneof(14);
-    }
-
-    /**
-     * Generated from protobuf field <code>.milvus.proto.schema.MolSmilesArray mol_smiles_data = 14;</code>
-     * @param \Milvus\Proto\Schema\MolSmilesArray $var
-     * @return $this
-     */
-    public function setMolSmilesData(\Milvus\Proto\Schema\MolSmilesArray|null $var)
-    {
-        $this->writeOneof(14, $var);
 
         return $this;
     }

@@ -93,12 +93,6 @@ class FieldSchema extends \Google\Protobuf\Internal\Message
      * Generated from protobuf field <code>bool is_function_output = 16;</code>
      */
     protected $is_function_output = false;
-    /**
-     * external field name 
-     *
-     * Generated from protobuf field <code>string external_field = 17;</code>
-     */
-    protected $external_field = '';
 
     /**
      * Constructor.
@@ -128,8 +122,6 @@ class FieldSchema extends \Google\Protobuf\Internal\Message
      *     @type bool $nullable
      *           enable set null as field value
      *     @type bool $is_function_output
-     *     @type string $external_field
-     *           external field name 
      * }
      */
     public function __construct($data = NULL) {
@@ -511,32 +503,6 @@ class FieldSchema extends \Google\Protobuf\Internal\Message
     public function setIsFunctionOutput(bool $var)
     {
         $this->is_function_output = $var;
-
-        return $this;
-    }
-
-    /**
-     * external field name 
-     *
-     * Generated from protobuf field <code>string external_field = 17;</code>
-     * @return string
-     */
-    public function getExternalField()
-    {
-        return $this->external_field;
-    }
-
-    /**
-     * external field name 
-     *
-     * Generated from protobuf field <code>string external_field = 17;</code>
-     * @param string $var
-     * @return $this
-     */
-    public function setExternalField(string $var)
-    {
-        GPBUtil::checkString($var, true);
-        $this->external_field = $var;
 
         return $this;
     }

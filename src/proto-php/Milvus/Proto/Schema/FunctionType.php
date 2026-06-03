@@ -28,22 +28,12 @@ class FunctionType
      * Generated from protobuf enum <code>Rerank = 3;</code>
      */
     const Rerank = 3;
-    /**
-     * Generated from protobuf enum <code>MinHash = 4;</code>
-     */
-    const MinHash = 4;
-    /**
-     * Generated from protobuf enum <code>MolFingerprint = 5;</code>
-     */
-    const MolFingerprint = 5;
 
     private static $valueToName = [
         self::Unknown => 'Unknown',
         self::BM25 => 'BM25',
         self::TextEmbedding => 'TextEmbedding',
         self::Rerank => 'Rerank',
-        self::MinHash => 'MinHash',
-        self::MolFingerprint => 'MolFingerprint',
     ];
 
     public static function name($value)
