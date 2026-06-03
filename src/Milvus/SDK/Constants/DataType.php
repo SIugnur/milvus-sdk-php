@@ -15,8 +15,8 @@ final class DataType
     const VarChar = 21;
     const Array = 22;
     const JSON = 23;
-    const FloatVector = 100;
-    const BinaryVector = 101;
+    const BinaryVector = 100;
+    const FloatVector = 101;
     const SparseFloatVector = 102;
     const Int8Vector = 103;
     const Float16Vector = 104;

@@ -191,6 +191,17 @@ class Client extends BaseStub
                     throw new MilvusException("{$method} failed: " . $status->details, $status->code);
                 }
 
+                if ($response instanceof Status && $response->getCode() !== 0) {
+                    throw new MilvusException("{$method} failed: " . $response->getReason(), $response->getCode());
+                }
+
+                if (method_exists($response, 'getStatus') && $response->getStatus() !== null) {
+                    $status = $response->getStatus();
+                    if ($status instanceof Status && $status->getCode() !== 0) {
+                        throw new MilvusException("{$method} failed: " . $status->getReason(), $status->getCode());
+                    }
+                }
+
                 return $response;
             } catch (MilvusException $e) {
                 throw $e;
@@ -413,21 +424,52 @@ class Client extends BaseStub
 
     // ========== Index ==========
 
-    public function createIndex(string $collectionName, string $fieldName, string $indexName = '', ?string $dbName = null, array $extraParams = []): void
+    public function createIndex(string $collectionName, string $fieldName, $indexType = 'FLAT', ?string $dbName = null, array $extraParams = []): void
     {
         $req = (new CreateIndexRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setFieldName($fieldName)
-            ->setIndexName($indexName);
-        if ($extraParams) {
-            $params = [];
-            foreach ($extraParams as $k => $v) {
-                $params[] = (new KeyValuePair())->setKey($k)->setValue((string)$v);
-            }
-            $req->setExtraParams($params);
+            ->setFieldName($fieldName);
+        
+        if (is_int($indexType)) {
+            $indexType = $this->indexTypeIntToString($indexType);
         }
+        
+        $defaultParams = [
+            'index_type' => $indexType,
+            'metric_type' => 'L2',
+        ];
+        
+        $params = array_merge($defaultParams, $extraParams);
+        $kvPairs = [];
+        foreach ($params as $k => $v) {
+            $kvPairs[] = (new KeyValuePair())->setKey($k)->setValue((string)$v);
+        }
+        $req->setExtraParams($kvPairs);
+        
         $this->call('CreateIndex', $req, Status::class);
+    }
+
+    private function indexTypeIntToString(int $indexType): string
+    {
+        $map = [
+            0 => 'INVALID',
+            1 => 'FLAT',
+            2 => 'IVFFLAT',
+            3 => 'IVFSQ8',
+            4 => 'IVFPQ',
+            5 => 'HNSW',
+            10 => 'DISKANN',
+            50 => 'AUTOINDEX',
+            55 => 'GPUIVFFLAT',
+            56 => 'GPUIVFSQ8',
+            80 => 'BINFLAT',
+            81 => 'BINIVFFLAT',
+            90 => 'TANTAMI',
+            100 => 'SPARSEINVERTEDINDEX',
+            101 => 'SPARSEWAND',
+        ];
+        return $map[$indexType] ?? 'FLAT';
     }
 
     public function describeIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): DescribeIndexResponse
@@ -481,19 +523,61 @@ class Client extends BaseStub
 
     public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
     {
+        $numRows = 0;
+        if (!empty($fieldsData)) {
+            $firstField = $fieldsData[0];
+            if ($firstField->getVectors()) {
+                $vectors = $firstField->getVectors();
+                $numRows = count($vectors->getFloatVector()->getData()) / $vectors->getDim();
+            } elseif ($firstField->getScalars()) {
+                $scalars = $firstField->getScalars();
+                if ($scalars->getLongData()) {
+                    $numRows = count($scalars->getLongData()->getData());
+                } elseif ($scalars->getIntData()) {
+                    $numRows = count($scalars->getIntData()->getData());
+                } elseif ($scalars->getFloatData()) {
+                    $numRows = count($scalars->getFloatData()->getData());
+                } elseif ($scalars->getStringData()) {
+                    $numRows = count($scalars->getStringData()->getData());
+                }
+            }
+        }
+        
         $req = (new InsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setFieldsData($fieldsData);
+            ->setFieldsData($fieldsData)
+            ->setNumRows((int)$numRows);
         return $this->call('Insert', $req, MutationResult::class);
     }
 
     public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
     {
+        $numRows = 0;
+        if (!empty($fieldsData)) {
+            $firstField = $fieldsData[0];
+            if ($firstField->getVectors()) {
+                $vectors = $firstField->getVectors();
+                $numRows = count($vectors->getFloatVector()->getData()) / $vectors->getDim();
+            } elseif ($firstField->getScalars()) {
+                $scalars = $firstField->getScalars();
+                if ($scalars->getLongData()) {
+                    $numRows = count($scalars->getLongData()->getData());
+                } elseif ($scalars->getIntData()) {
+                    $numRows = count($scalars->getIntData()->getData());
+                } elseif ($scalars->getFloatData()) {
+                    $numRows = count($scalars->getFloatData()->getData());
+                } elseif ($scalars->getStringData()) {
+                    $numRows = count($scalars->getStringData()->getData());
+                }
+            }
+        }
+        
         $req = (new UpsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setFieldsData($fieldsData);
+            ->setFieldsData($fieldsData)
+            ->setNumRows((int)$numRows);
         return $this->call('Upsert', $req, MutationResult::class);
     }
 

@@ -61,14 +61,20 @@ class DataHelper
                 break;
             case DataType::FloatVector:
                 $flat = [];
+                $dim = 0;
                 foreach ($values as $vec) {
-                    $flat = array_merge($flat, $vec);
+                    if (is_array($vec)) {
+                        $flat = array_merge($flat, $vec);
+                        if ($dim === 0) {
+                            $dim = count($vec);
+                        }
+                    }
                 }
                 $floatArray = new FloatArray();
                 $floatArray->setData($flat);
                 $vecField = new \Milvus\Proto\Schema\VectorField();
                 $vecField->setFloatVector($floatArray);
-                $vecField->setDim(count($values[0]));
+                $vecField->setDim($dim);
                 $fd->setVectors($vecField);
                 break;
             case DataType::BinaryVector:
@@ -96,12 +102,37 @@ class DataHelper
                 if (isset($record[$fieldName])) {
                     $values[] = $record[$fieldName];
                 } else {
-                    $values[] = null;
+                    $values[] = self::getDefaultValue($dataType);
                 }
             }
-            $fields[] = self::buildFieldData($fieldName, array_values(array_filter($values, fn($v) => $v !== null)), $dataType);
+            $fields[] = self::buildFieldData($fieldName, $values, $dataType);
         }
 
         return $fields;
+    }
+
+    private static function getDefaultValue(int $dataType)
+    {
+        switch ($dataType) {
+            case DataType::Int64:
+            case DataType::Int32:
+            case DataType::Int16:
+            case DataType::Int8:
+                return 0;
+            case DataType::Float:
+            case DataType::Double:
+                return 0.0;
+            case DataType::Bool:
+                return false;
+            case DataType::VarChar:
+            case DataType::String:
+                return '';
+            case DataType::FloatVector:
+                return [];
+            case DataType::BinaryVector:
+                return '';
+            default:
+                return null;
+        }
     }
 }
