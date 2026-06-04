@@ -387,15 +387,11 @@ class ClientTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        $result = self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
-        ], [
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
         ]);
-
-        $result = self::$client->insert($collectionName, $fieldsData);
         $this->assertNotEmpty($result->getInsertIds());
 
         self::$client->flush($collectionName);
@@ -421,15 +417,10 @@ class ClientTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        $result = self::$client->upsert($collectionName, [
             ['id' => 1, 'vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'original'],
-        ], [
-            'id' => DataType::Int64,
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
         ]);
-
-        $result = self::$client->upsert($collectionName, $fieldsData);
         $this->assertNotNull($result);
     }
 
@@ -450,15 +441,10 @@ class ClientTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        self::$client->insert($collectionName, [
             ['id' => 1, 'vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'delete_me'],
-        ], [
-            'id' => DataType::Int64,
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
         ]);
-
-        self::$client->insert($collectionName, $fieldsData);
         self::$client->flush($collectionName);
 
         $result = self::$client->delete($collectionName, 'id == 1');
@@ -482,15 +468,11 @@ class ClientTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
-        ], [
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
         ]);
-
-        self::$client->insert($collectionName, $fieldsData);
         self::$client->flush($collectionName);
 
         $results = self::$client->search(
@@ -523,16 +505,12 @@ class ClientTest extends TestCase
 
         self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'value' => 1],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'value' => 2],
             ['vector' => [0.9, 1.0, 1.1, 1.2], 'value' => 3],
-        ], [
-            'vector' => DataType::FloatVector,
-            'value' => DataType::Int64,
         ]);
-
-        self::$client->insert($collectionName, $fieldsData);
         self::$client->flush($collectionName);
 
         self::$client->loadCollection($collectionName);

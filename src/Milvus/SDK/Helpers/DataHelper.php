@@ -160,13 +160,8 @@ class DataHelper
         }
 
         $firstItem = reset($records);
-        
-        if ($firstItem instanceof FieldData) {
-            return $records;
-        }
-
         if (!is_array($firstItem)) {
-            throw new ParamException('Records must be an array of associative arrays or FieldData objects');
+            throw new ParamException('Records must be an array of associative arrays');
         }
 
         $fields = [];

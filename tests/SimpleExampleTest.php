@@ -46,16 +46,12 @@ class SimpleExampleTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', $dbName, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName, $dbName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        $insertResult = self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
             ['vector' => [0.9, 1.0, 1.1, 1.2], 'title' => 'doc3'],
-        ], [
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
-        ]);
-
-        $insertResult = self::$client->insert($collectionName, $fieldsData, $dbName);
+        ], $dbName);
         $this->assertNotNull($insertResult);
         $this->assertNotNull($insertResult->getInsertIds());
 
@@ -100,16 +96,12 @@ class SimpleExampleTest extends TestCase
         self::$client->createIndex($collectionName, 'vector', $dbName, ['index_type' => 'FLAT']);
         self::$client->loadCollection($collectionName, $dbName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        $insertResult = self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
             ['vector' => [0.9, 1.0, 1.1, 1.2], 'title' => 'doc3'],
-        ], [
-            'vector' => DataType::FloatVector,
-            'title' => DataType::VarChar,
-        ]);
-
-        $insertResult = self::$client->insert($collectionName, $fieldsData, $dbName);
+        ], $dbName);
         $this->assertNotNull($insertResult);
 
         self::$client->flush($collectionName, $dbName);
@@ -207,17 +199,12 @@ class SimpleExampleTest extends TestCase
         ]);
         self::$client->loadCollection($collectionName, $dbName);
 
-        $fieldsData = DataHelper::recordsToFieldData([
+        // 使用新写法：直接传入关联数组
+        $insertResult = self::$client->insert($collectionName, [
             ['vector' => [0.1, 0.2, 0.3, 0.4], 'language' => 'English', 'title' => 'document one: If you prefer to use a custom analyzer name or need to maintain compatibility with the existing configuration, you can use the mapping parameter. This will create an alias for your analyzer - both the original detection engine name and the custom name can be used.'],
             ['vector' => [0.5, 0.6, 0.7, 0.8], 'language' => 'Mandarin', 'title' => 'document two: 如果喜欢使用自定义分析器名称，或需要保持与现有配置的兼容性，可以使用 mapping 参数。这将为您的分析器创建别名--原始检测引擎名称和自定义名称均可使用。'],
             ['vector' => [0.9, 1.0, 1.1, 1.2], 'language' => 'default', 'title' => 'document three: 사용자 정의 분석기 이름을 좋아하거나 기존 구성과 호환성을 유지하려면 매핑 인수를 사용할 수 있다.그러면 분석기의 별명을 만들 수 있습니다-원시 탐지 엔진 이름과 사용자 정의 이름 모두 가능합니다.'],
-        ], [
-            'vector' => DataType::FloatVector,
-            'language' => DataType::VarChar,
-            'title' => DataType::VarChar,
-        ]);
-
-        $insertResult = self::$client->insert($collectionName, $fieldsData, $dbName);
+        ], $dbName);
         $this->assertNotNull($insertResult);
 
         self::$client->flush($collectionName, $dbName);

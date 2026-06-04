@@ -51,7 +51,6 @@ $client = new Client([
 ```php
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
-use Milvus\SDK\Helpers\DataHelper;
 
 $client = new Client(['host' => 'localhost', 'port' => 19530]);
 
