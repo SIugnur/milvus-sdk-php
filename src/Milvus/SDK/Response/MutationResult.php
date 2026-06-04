@@ -27,7 +27,7 @@ class MutationResult
         return $this->raw->getUpsertCnt();
     }
 
-    public function getInsertIds(): array
+    public function getIds(): array
     {
         $ids = $this->raw->getIDs();
         if ($ids === null) {
@@ -40,6 +40,33 @@ class MutationResult
             return iterator_to_array($ids->getStrId()->getData());
         }
         return [];
+    }
+
+    public function getInsertIds(): array
+    {
+        return $this->getIds();
+    }
+
+    public function getDeleteIds(): array
+    {
+        return $this->getIds();
+    }
+
+    public function getUpsertIds(): array
+    {
+        return $this->getIds();
+    }
+
+    public function getSuccIndex(): array
+    {
+        $succIndex = $this->raw->getSuccIndex();
+        return $succIndex ? iterator_to_array($succIndex) : [];
+    }
+
+    public function getErrIndex(): array
+    {
+        $errIndex = $this->raw->getErrIndex();
+        return $errIndex ? iterator_to_array($errIndex) : [];
     }
 
     public function getTimestamp(): int
