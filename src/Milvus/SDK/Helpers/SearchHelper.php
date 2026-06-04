@@ -4,9 +4,7 @@ namespace Milvus\SDK\Helpers;
 use Milvus\Proto\Common\PlaceholderGroup;
 use Milvus\Proto\Common\PlaceholderValue;
 use Milvus\Proto\Common\PlaceholderType;
-use Milvus\Proto\Common\KeyValuePair;
 use Milvus\Proto\Milvus\SearchRequest;
-use Milvus\Proto\Milvus\HybridSearchRequest;
 use Milvus\Proto\Milvus\QueryRequest;
 use Milvus\SDK\Exceptions\ParamException;
 
@@ -42,13 +40,13 @@ class SearchHelper
         $pg = new PlaceholderGroup();
         $pg->setPlaceholders($placeholderValues);
 
-        $searchParamsInternal = [new KeyValuePair(['key' => 'anns_field', 'value' => $annsField])];
-        $searchParamsInternal[] = new KeyValuePair(['key' => 'topk', 'value' => (string)$topK]);
-        $searchParamsInternal[] = new KeyValuePair(['key' => 'params', 'value' => json_encode((object)$params)]);
+        $searchParamsInternal = Helper::toKeyValuePairs([
+            'anns_field' => $annsField,
+            'topk' => (string)$topK,
+            'params' => json_encode((object)$params),
+        ]);
         if ($searchParams !== null) {
-            foreach ($searchParams as $k => $v) {
-                $searchParamsInternal[] = new KeyValuePair(['key' => (string)$k, 'value' => (string)$v]);
-            }
+            $searchParamsInternal = array_merge($searchParamsInternal, Helper::toKeyValuePairs($searchParams));
         }
         $searchParams = $searchParamsInternal;
 

@@ -1,7 +1,6 @@
 <?php
 namespace Milvus\SDK\Helpers;
 
-use Milvus\Proto\Common\KeyValuePair;
 use Milvus\Proto\Schema\CollectionSchema;
 use Milvus\Proto\Schema\FieldSchema;
 use Milvus\Proto\Schema\DataType;
@@ -55,14 +54,7 @@ class SchemaHelper
         }
 
         if (isset($field['type_params']) && is_array($field['type_params'])) {
-            $params = [];
-            foreach ($field['type_params'] as $k => $v) {
-                $kv = new KeyValuePair();
-                $kv->setKey($k);
-                $kv->setValue((string)$v);
-                $params[] = $kv;
-            }
-            $fs->setTypeParams($params);
+            $fs->setTypeParams(Helper::toKeyValuePairs($field['type_params']));
         }
 
         if (isset($field['default_value'])) {
@@ -78,23 +70,6 @@ class SchemaHelper
         }
 
         return $fs;
-    }
-
-    public static function buildKeyValuePair(string $key, string $value): KeyValuePair
-    {
-        $kv = new KeyValuePair();
-        $kv->setKey($key);
-        $kv->setValue($value);
-        return $kv;
-    }
-
-    public static function buildKeyValuePairs(array $params): array
-    {
-        $pairs = [];
-        foreach ($params as $key => $value) {
-            $pairs[] = self::buildKeyValuePair($key, (string)$value);
-        }
-        return $pairs;
     }
 
     public static function buildFunctionSchema(array $function, int $functionId = 1): FunctionSchema
@@ -132,7 +107,7 @@ class SchemaHelper
         }
 
         if (isset($function['params']) && is_array($function['params'])) {
-            $fs->setParams(self::buildKeyValuePairs($function['params']));
+            $fs->setParams(Helper::toKeyValuePairs($function['params']));
         }
 
         return $fs;

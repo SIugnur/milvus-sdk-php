@@ -123,6 +123,7 @@ use Milvus\Proto\Milvus\RunAnalyzerRequest;
 use Milvus\Proto\Milvus\RunAnalyzerResponse;
 use Milvus\SDK\Exceptions\MilvusException;
 use Milvus\SDK\Exceptions\ConnectionException;
+use Milvus\SDK\Helpers\Helper;
 use Milvus\SDK\Helpers\SchemaHelper;
 use Milvus\SDK\Helpers\SearchHelper;
 use Milvus\SDK\Response\AliasDescriptor;
@@ -369,14 +370,10 @@ class Client extends BaseStub
     /** Properties as an associative array, e.g. ['collection.ttl.seconds' => '3600']. */
     public function alterCollection(string $name, array $properties, ?string $dbName = null): void
     {
-        $pairs = [];
-        foreach ($properties as $k => $v) {
-            $pairs[] = (new KeyValuePair())->setKey((string)$k)->setValue((string)$v);
-        }
         $this->call('AlterCollection', (new AlterCollectionRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($name)
-            ->setProperties($pairs), Status::class);
+            ->setProperties(Helper::toKeyValuePairs($properties)), Status::class);
     }
 
     public function getCollectionStatistics(string $name, ?string $dbName = null): CollectionStats
@@ -449,17 +446,16 @@ class Client extends BaseStub
         ?string $dbName = null,
         array $params = [],
     ): void {
-        $kvPairs = [];
-        foreach (['index_type' => 'FLAT', 'metric_type' => 'L2'] as $key => $default) {
-            $kvPairs[] = (new KeyValuePair())->setKey($key)->setValue((string)($params[$key] ?? $default));
-        }
+        $indexParams = [
+            'index_type' => $params['index_type'] ?? 'FLAT',
+            'metric_type' => $params['metric_type'] ?? 'L2',
+        ];
         if (isset($params['index_name'])) {
-            $kvPairs[] = (new KeyValuePair())->setKey('index_name')->setValue($params['index_name']);
+            $indexParams['index_name'] = $params['index_name'];
         }
         unset($params['index_type'], $params['metric_type'], $params['index_name']);
-        foreach ($params as $k => $v) {
-            $kvPairs[] = (new KeyValuePair())->setKey((string)$k)->setValue((string)$v);
-        }
+        
+        $kvPairs = Helper::toKeyValuePairs(array_merge($indexParams, $params));
 
         $this->call('CreateIndex', (new CreateIndexRequest())
             ->setDbName($dbName ?? $this->database)
@@ -562,8 +558,49 @@ class Client extends BaseStub
         return new SearchResult($this->call('Search', $request, SearchResults::class));
     }
 
-    /** Hybrid search accepts a protobuf HybridSearchRequest. */
-    public function hybridSearch(HybridSearchRequest $request): SearchResult
+    /** Hybrid search with simplified parameters. */
+    public function hybridSearch(
+        string $collectionName,
+        array $searchConfigs,
+        array $rankParams = [],
+        array $outputFields = [],
+        ?string $dbName = null,
+    ): SearchResult {
+        $requests = [];
+        foreach ($searchConfigs as $config) {
+            $vectors = $config['vectors'] ?? [];
+            $annsField = $config['annsField'] ?? '';
+            $topK = $config['topK'] ?? 100;
+            $params = $config['params'] ?? [];
+            $outputFlds = $config['outputFields'] ?? [];
+            $filter = $config['filter'] ?? '';
+            $searchParams = $config['searchParams'] ?? null;
+            
+            $requests[] = SearchHelper::buildSearchRequest(
+                $collectionName, $vectors, $annsField, $topK,
+                $params, $outputFlds, $filter, $dbName ?? '', $searchParams
+            );
+        }
+        
+        $req = (new HybridSearchRequest())
+            ->setCollectionName($collectionName)
+            ->setRequests($requests);
+        
+        if ($dbName) {
+            $req->setDbName($dbName);
+        }
+        if ($rankParams) {
+            $req->setRankParams(Helper::toKeyValuePairs($rankParams));
+        }
+        if ($outputFields) {
+            $req->setOutputFields($outputFields);
+        }
+        
+        return new SearchResult($this->call('HybridSearch', $req, SearchResults::class));
+    }
+
+    /** Advanced hybrid search with a raw HybridSearchRequest. */
+    public function hybridSearchRaw(HybridSearchRequest $request): SearchResult
     {
         return new SearchResult($this->call('HybridSearch', $request, SearchResults::class));
     }
@@ -583,9 +620,9 @@ class Client extends BaseStub
         if ($outputFields) $req->setOutputFields($outputFields);
         if ($limit > 0 || $offset > 0) {
             $params = [];
-            if ($limit > 0) $params[] = (new KeyValuePair())->setKey('limit')->setValue((string)$limit);
-            if ($offset > 0) $params[] = (new KeyValuePair())->setKey('offset')->setValue((string)$offset);
-            $req->setQueryParams($params);
+            if ($limit > 0) $params['limit'] = (string)$limit;
+            if ($offset > 0) $params['offset'] = (string)$offset;
+            $req->setQueryParams(Helper::toKeyValuePairs($params));
         }
         return new QueryResult($this->call('Query', $req, QueryResults::class));
     }
@@ -829,7 +866,7 @@ class Client extends BaseStub
 
     // ========== Analyzer ==========
 
-    /** Run analyzer with text directly. For full control, use runAnalyzerRequest(). */
+    /** Run analyzer with text directly. For full control, use runAnalyzerRaw(). */
     public function runAnalyzer(
         string $text,
         array $analyzerParams = [],
@@ -849,7 +886,7 @@ class Client extends BaseStub
     }
 
     /** Advanced: pass a raw RunAnalyzerRequest. */
-    public function runAnalyzerRequest(RunAnalyzerRequest $request): RunAnalyzerResult
+    public function runAnalyzerRaw(RunAnalyzerRequest $request): RunAnalyzerResult
     {
         return new RunAnalyzerResult($this->call('RunAnalyzer', $request, RunAnalyzerResponse::class));
     }

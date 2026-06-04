@@ -5,9 +5,6 @@ use Milvus\Proto\Schema\FunctionType;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
 use Milvus\SDK\Helpers\DataHelper;
-use Milvus\SDK\Helpers\SearchHelper;
-use Milvus\Proto\Common\KeyValuePair;
-use Milvus\Proto\Milvus\HybridSearchRequest;
 use PHPUnit\Framework\TestCase;
 
 class SimpleExampleTest extends TestCase
@@ -225,55 +222,41 @@ class SimpleExampleTest extends TestCase
 
         self::$client->flush($collectionName, $dbName);
 
-        $searchReq_1 = SearchHelper::buildSearchRequest(
+        $hybridResult = self::$client->hybridSearch(
             $collectionName,
-            [[0.2, 0.3, 0.4, 0.5]],
-            'vector',
-            3,
-            ['nprobe' => 10],
-            ['title'],
-            '',
-            $dbName
-        );
-        $searchReq_2 = SearchHelper::buildSearchRequest(
-            $collectionName,
-            ['什么是自定义分析器？'],
-            'title_sparse',
-            3,
-            [],
-            ['title'],
-            '',
-            $dbName,
             [
-                'analyzer_name' => 'Mandarin'
-            ]
-        );
-
-
-        $hybridReq = (new HybridSearchRequest())
-            ->setCollectionName($collectionName)
-            ->setDbName($dbName)
-            ->setRequests([$searchReq_1, $searchReq_2])
-            ->setRankParams([
-                new KeyValuePair(['key' => 'strategy', 'value' => 'rrf']),
-                new KeyValuePair(['key' => 'params', 'value' => json_encode([
+                [
+                    'vectors' => [[0.2, 0.3, 0.4, 0.5]],
+                    'annsField' => 'vector',
+                    'topK' => 3,
+                    'params' => ['nprobe' => 10],
+                    'outputFields' => ['title']
+                ],
+                [
+                    'vectors' => ['什么是自定义分析器？'],
+                    'annsField' => 'title_sparse',
+                    'topK' => 3,
+                    'searchParams' => ['analyzer_name' => 'Mandarin'],
+                    'outputFields' => ['title']
+                ]
+            ],
+            [
+                'strategy' => 'rrf',
+                'params' => json_encode([
                     'functions' => [
                         [
                             'name' => 'rrf',
                             'type' => 'Rerank',
                             'inputFieldNames' => [],
-                            'params' => [
-                                'reranker' => 'rrf',
-                                'k' => 60
-                            ]
+                            'params' => ['reranker' => 'rrf', 'k' => 60]
                         ]
                     ]
-                ])]),
-                new KeyValuePair(['key' => 'limit', 'value' => '10'])
-            ])
-            ->setOutputFields(['title']);
-
-        $hybridResult = self::$client->hybridSearch($hybridReq);
+                ]),
+                'limit' => '10'
+            ],
+            ['title'],
+            $dbName
+        );
         echo json_encode($hybridResult->toArray());
 
         $this->assertNotNull($hybridResult);

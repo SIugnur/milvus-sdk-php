@@ -4,12 +4,10 @@ namespace Milvus\SDK\Tests;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
 use Milvus\SDK\Constants\LoadState;
-use Milvus\SDK\Constants\OperateUserRoleType;
+use Milvus\SDK\Helpers\Helper;
 use Milvus\SDK\Helpers\SchemaHelper;
 use Milvus\SDK\Helpers\DataHelper;
 use Milvus\SDK\Helpers\SearchHelper;
-use Milvus\SDK\Exceptions\MilvusException;
-use Milvus\SDK\Exceptions\ConnectionException;
 use PHPUnit\Framework\TestCase;
 
 class ClientTest extends TestCase
@@ -298,9 +296,9 @@ class ClientTest extends TestCase
         $this->assertEquals('title', $fields[2]->getName());
     }
 
-    public function testSchemaHelperBuildKeyValuePairs()
+    public function testHelperToKeyValuePairs()
     {
-        $pairs = SchemaHelper::buildKeyValuePairs(['dim' => '128', 'max_length' => '512']);
+        $pairs = Helper::toKeyValuePairs(['dim' => '128', 'max_length' => '512']);
         $this->assertCount(2, $pairs);
         $this->assertEquals('dim', $pairs[0]->getKey());
         $this->assertEquals('128', $pairs[0]->getValue());
