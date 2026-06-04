@@ -153,6 +153,66 @@ class DataHelper
         }
     }
 
+    public static function convertRecordsToFieldData(array $records): array
+    {
+        if (empty($records)) {
+            return [];
+        }
+
+        $firstItem = reset($records);
+        
+        if ($firstItem instanceof FieldData) {
+            return $records;
+        }
+
+        if (!is_array($firstItem)) {
+            throw new ParamException('Records must be an array of associative arrays or FieldData objects');
+        }
+
+        $fields = [];
+        $fieldNames = array_keys($firstItem);
+
+        foreach ($fieldNames as $fieldName) {
+            $values = [];
+            $dataType = null;
+
+            foreach ($records as $row) {
+                $value = $row[$fieldName] ?? null;
+                $values[] = $value;
+                
+                if ($dataType === null) {
+                    $dataType = self::inferDataType($value);
+                }
+            }
+
+            $fields[] = self::buildFieldData($fieldName, $values, $dataType);
+        }
+
+        return $fields;
+    }
+
+    private static function inferDataType($value): int
+    {
+        if (is_int($value)) {
+            return DataType::Int64;
+        }
+        if (is_float($value)) {
+            return DataType::Float;
+        }
+        if (is_bool($value)) {
+            return DataType::Bool;
+        }
+        if (is_array($value)) {
+            foreach ($value as $v) {
+                if (!is_float($v) && !is_int($v)) {
+                    return DataType::VarChar;
+                }
+            }
+            return DataType::FloatVector;
+        }
+        return DataType::VarChar;
+    }
+
     /**
      * Extract values from a FieldData protobuf object.
      *

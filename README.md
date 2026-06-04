@@ -77,16 +77,11 @@ $client->createIndex('my_collection', 'vector', null, [
 // 3. Load collection into memory
 $client->loadCollection('my_collection');
 
-// 4. Insert data
-$fieldsData = DataHelper::recordsToFieldData([
+// 4. Insert data (directly pass associative arrays!)
+$result = $client->insert('my_collection', [
     ['vector' => array_fill(0, 128, 0.1), 'text' => 'document 1'],
     ['vector' => array_fill(0, 128, 0.2), 'text' => 'document 2'],
-], [
-    'vector' => DataType::FloatVector,
-    'text' => DataType::VarChar,
 ]);
-
-$result = $client->insert('my_collection', $fieldsData);
 echo "Inserted IDs: " . json_encode($result->getInsertIds()) . "\n";
 
 // 5. Search directly with simple parameters
@@ -164,24 +159,70 @@ $client->dropIndex('my_collection', 'vector');
 #### Insert
 
 ```php
-use Milvus\SDK\Helpers\DataHelper;
-
-$fieldsData = DataHelper::recordsToFieldData([
-    ['vector' => [0.1, 0.2, 0.3], 'text' => 'doc1'],
-    ['vector' => [0.4, 0.5, 0.6], 'text' => 'doc2'],
-], [
-    'vector' => DataType::FloatVector,
-    'text' => DataType::VarChar,
+// Directly pass associative arrays (data types are auto-inferred)
+$result = $client->insert('my_collection', [
+    ['vector' => [0.1, 0.2, 0.3], 'text' => 'doc1', 'value' => 100],
+    ['vector' => [0.4, 0.5, 0.6], 'text' => 'doc2', 'value' => 200],
 ]);
-
-$result = $client->insert('my_collection', $fieldsData);
 $ids = $result->getInsertIds();
+
+// With optional parameters
+$result = $client->insert(
+    'my_collection',
+    [['vector' => [0.1, 0.2, 0.3], 'text' => 'doc1']],
+    'default',       // dbName
+    'my_partition',  // partitionName
+    [1, 2, 3],      // hashKeys
+    0,              // schemaTimestamp
+    'my_namespace'  // namespace
+);
 ```
 
 #### Upsert
 
 ```php
-$result = $client->upsert('my_collection', $fieldsData);
+// Basic upsert (auto-infer types)
+$result = $client->upsert('my_collection', [
+    ['id' => 1, 'vector' => [0.1, 0.2, 0.3], 'text' => 'updated'],
+    ['id' => 2, 'vector' => [0.4, 0.5, 0.6], 'text' => 'new'],
+]);
+
+// Upsert with partial update (only update specified fields)
+$result = $client->upsert(
+    'my_collection',
+    [['id' => 1, 'value' => 999]],  // Only update 'value' field
+    'default',       // dbName
+    '',              // partitionName
+    [],              // hashKeys
+    0,               // schemaTimestamp
+    true,            // partialUpdate (incremental update)
+    '',              // namespace
+    []               // fieldOps
+);
+
+// Upsert with fieldOps (for array field operations)
+use Milvus\Proto\Schema\FieldPartialUpdateOp;
+
+$fieldOps = [
+    (new FieldPartialUpdateOp())
+        ->setFieldName('tags')
+        ->setOp(\Milvus\Proto\Schema\FieldPartialUpdateOp\OpType::ARRAY_APPEND),  // Append to array
+    (new FieldPartialUpdateOp())
+        ->setFieldName('scores')
+        ->setOp(\Milvus\Proto\Schema\FieldPartialUpdateOp\OpType::REPLACE),       // Replace (default)
+];
+
+$result = $client->upsert(
+    'my_collection',
+    [['id' => 1, 'tags' => ['new_tag'], 'scores' => [95, 88]]],
+    'default',
+    '',
+    [],
+    0,
+    true,
+    '',
+    $fieldOps
+);
 ```
 
 #### Delete

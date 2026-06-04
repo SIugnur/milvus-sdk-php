@@ -126,6 +126,7 @@ use Milvus\SDK\Exceptions\ConnectionException;
 use Milvus\SDK\Helpers\Helper;
 use Milvus\SDK\Helpers\SchemaHelper;
 use Milvus\SDK\Helpers\SearchHelper;
+use Milvus\SDK\Helpers\DataHelper;
 use Milvus\SDK\Response\AliasDescriptor;
 use Milvus\SDK\Response\CollectionInfo;
 use Milvus\SDK\Response\CollectionStats;
@@ -503,24 +504,60 @@ class Client extends BaseStub
 
     // ========== Data ==========
 
-    public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
-    {
+    public function insert(
+        string $collectionName,
+        array $records,
+        ?string $dbName = null,
+        string $partitionName = '',
+        array $hashKeys = [],
+        int|string $schemaTimestamp = 0,
+        string $namespace = ''
+    ): MutationResult {
+        $fieldsData = DataHelper::convertRecordsToFieldData($records);
         $numRows = $this->inferNumRows($fieldsData);
-        return new MutationResult($this->call('Insert', (new InsertRequest())
+        
+        $req = (new InsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows($numRows), ProtoMutationResult::class));
+            ->setNumRows($numRows);
+        
+        if ($partitionName) $req->setPartitionName($partitionName);
+        if (!empty($hashKeys)) $req->setHashKeys($hashKeys);
+        if ($schemaTimestamp > 0) $req->setSchemaTimestamp($schemaTimestamp);
+        if ($namespace) $req->setNamespace($namespace);
+        
+        return new MutationResult($this->call('Insert', $req, ProtoMutationResult::class));
     }
 
-    public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
-    {
+    public function upsert(
+        string $collectionName,
+        array $records,
+        ?string $dbName = null,
+        string $partitionName = '',
+        array $hashKeys = [],
+        int|string $schemaTimestamp = 0,
+        bool $partialUpdate = false,
+        string $namespace = '',
+        array $fieldOps = []
+    ): MutationResult {
+        $fieldsData = DataHelper::convertRecordsToFieldData($records);
         $numRows = $this->inferNumRows($fieldsData);
-        return new MutationResult($this->call('Upsert', (new UpsertRequest())
+        
+        $req = (new UpsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows($numRows), ProtoMutationResult::class));
+            ->setNumRows($numRows);
+        
+        if ($partitionName) $req->setPartitionName($partitionName);
+        if (!empty($hashKeys)) $req->setHashKeys($hashKeys);
+        if ($schemaTimestamp > 0) $req->setSchemaTimestamp($schemaTimestamp);
+        if ($partialUpdate) $req->setPartialUpdate($partialUpdate);
+        if ($namespace) $req->setNamespace($namespace);
+        if (!empty($fieldOps)) $req->setFieldOps($fieldOps);
+        
+        return new MutationResult($this->call('Upsert', $req, ProtoMutationResult::class));
     }
 
     public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): MutationResult
