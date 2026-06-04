@@ -53,7 +53,7 @@ use Milvus\Proto\Milvus\GetIndexStatisticsResponse;
 use Milvus\Proto\Milvus\InsertRequest;
 use Milvus\Proto\Milvus\UpsertRequest;
 use Milvus\Proto\Milvus\DeleteRequest;
-use Milvus\Proto\Milvus\MutationResult;
+use Milvus\Proto\Milvus\MutationResult as ProtoMutationResult;
 use Milvus\Proto\Milvus\SearchRequest;
 use Milvus\Proto\Milvus\SearchResults;
 use Milvus\Proto\Milvus\HybridSearchRequest;
@@ -63,6 +63,8 @@ use Milvus\Proto\Milvus\FlushRequest;
 use Milvus\Proto\Milvus\FlushResponse;
 use Milvus\Proto\Milvus\GetFlushStateRequest;
 use Milvus\Proto\Milvus\GetFlushStateResponse;
+use Milvus\Proto\Milvus\GetFlushAllStateRequest;
+use Milvus\Proto\Milvus\GetFlushAllStateResponse;
 use Milvus\Proto\Milvus\GetLoadingProgressRequest;
 use Milvus\Proto\Milvus\GetLoadingProgressResponse;
 use Milvus\Proto\Milvus\GetLoadStateRequest;
@@ -110,8 +112,6 @@ use Milvus\Proto\Milvus\GetCompactionStateResponse;
 use Milvus\Proto\Milvus\TruncateCollectionRequest;
 use Milvus\Proto\Milvus\GetReplicasRequest;
 use Milvus\Proto\Milvus\GetReplicasResponse;
-use Milvus\Proto\Milvus\RunAnalyzerRequest;
-use Milvus\Proto\Milvus\RunAnalyzerResponse;
 use Milvus\Proto\Milvus\TransferReplicaRequest;
 use Milvus\Proto\Milvus\GetPersistentSegmentInfoRequest;
 use Milvus\Proto\Milvus\GetPersistentSegmentInfoResponse;
@@ -119,16 +119,34 @@ use Milvus\Proto\Milvus\GetQuerySegmentInfoRequest;
 use Milvus\Proto\Milvus\GetQuerySegmentInfoResponse;
 use Milvus\Proto\Milvus\FlushAllRequest;
 use Milvus\Proto\Milvus\FlushAllResponse;
-use Milvus\Proto\Milvus\GetFlushAllStateRequest;
-use Milvus\Proto\Milvus\GetFlushAllStateResponse;
-use Milvus\SDK\Exceptions\ConnectionException;
+use Milvus\Proto\Milvus\RunAnalyzerRequest;
+use Milvus\Proto\Milvus\RunAnalyzerResponse;
 use Milvus\SDK\Exceptions\MilvusException;
+use Milvus\SDK\Exceptions\ConnectionException;
+use Milvus\SDK\Helpers\SchemaHelper;
+use Milvus\SDK\Helpers\SearchHelper;
+use Milvus\SDK\Response\AliasDescriptor;
 use Milvus\SDK\Response\CollectionInfo;
+use Milvus\SDK\Response\CollectionStats;
+use Milvus\SDK\Response\CompactionResult;
+use Milvus\SDK\Response\CompactionState;
+use Milvus\SDK\Response\DatabaseDescriptor;
+use Milvus\SDK\Response\FlushResult;
 use Milvus\SDK\Response\HealthInfo;
+use Milvus\SDK\Response\ImportResult;
+use Milvus\SDK\Response\ImportState;
+use Milvus\SDK\Response\ImportTasks;
+use Milvus\SDK\Response\IndexBuildProgress;
 use Milvus\SDK\Response\IndexInfo;
-use Milvus\SDK\Response\MutationResult as ResponseMutationResult;
+use Milvus\SDK\Response\IndexStateInfo;
+use Milvus\SDK\Response\LoadingProgress;
+use Milvus\SDK\Response\MutationResult;
+use Milvus\SDK\Response\PartitionList;
 use Milvus\SDK\Response\QueryResult;
+use Milvus\SDK\Response\ReplicaInfo;
+use Milvus\SDK\Response\RunAnalyzerResult;
 use Milvus\SDK\Response\SearchResult;
+use Milvus\SDK\Response\SegmentInfo;
 
 class Client extends BaseStub
 {
@@ -156,39 +174,33 @@ class Client extends BaseStub
         $this->maxRetries = $config['max_retries'] ?? 3;
         $this->retryDelay = $config['retry_delay'] ?? 10;
 
-        $address = "{$this->host}:{$this->port}";
-
         $opts = [];
-
         if ($this->ssl) {
             $opts['credentials'] = ChannelCredentials::createSsl();
         } else {
             $opts['credentials'] = ChannelCredentials::createInsecure();
         }
-
         if ($this->timeout) {
             $opts['timeout'] = $this->timeout * 1000;
         }
 
-        parent::__construct($address, $opts);
+        parent::__construct("{$this->host}:{$this->port}", $opts);
     }
 
+    /** @internal Low-level gRPC call with auth and retries. */
     public function call(string $method, Message $request, string $responseClass): mixed
     {
         $metadata = [];
-
         if ($this->token) {
             $metadata['authorization'] = ['Bearer ' . $this->token];
         } elseif ($this->username && $this->password) {
-            $credentials = base64_encode("{$this->username}:{$this->password}");
-            $metadata['authorization'] = ['Basic ' . $credentials];
+            $metadata['authorization'] = ['Basic ' . base64_encode("{$this->username}:{$this->password}")];
         }
 
         $lastException = null;
-
         for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             try {
-                list($response, $status) = $this->_simpleRequest(
+                [$response, $status] = $this->_simpleRequest(
                     '/milvus.proto.milvus.MilvusService/' . $method,
                     $request,
                     [$responseClass, 'decode'],
@@ -198,15 +210,13 @@ class Client extends BaseStub
                 if ($status->code !== 0) {
                     throw new MilvusException("{$method} failed: " . $status->details, $status->code);
                 }
-
                 if ($response instanceof Status && $response->getCode() !== 0) {
                     throw new MilvusException("{$method} failed: " . $response->getReason(), $response->getCode());
                 }
-
                 if (method_exists($response, 'getStatus') && $response->getStatus() !== null) {
-                    $status = $response->getStatus();
-                    if ($status instanceof Status && $status->getCode() !== 0) {
-                        throw new MilvusException("{$method} failed: " . $status->getReason(), $status->getCode());
+                    $s = $response->getStatus();
+                    if ($s instanceof Status && $s->getCode() !== 0) {
+                        throw new MilvusException("{$method} failed: " . $s->getReason(), $s->getCode());
                     }
                 }
 
@@ -221,8 +231,10 @@ class Client extends BaseStub
             }
         }
 
-        throw new ConnectionException("{$method} failed after {$this->maxRetries} retries: " . $lastException->getMessage(), 0, $lastException);
+        throw new ConnectionException("{$method} failed after {$this->maxRetries} retries: " . $lastException->getMessage(), $lastException);
     }
+
+    // ========== Database ==========
 
     public function getDefaultDatabase(): string
     {
@@ -234,41 +246,11 @@ class Client extends BaseStub
         $this->database = $database;
     }
 
-    // ========== System ==========
-
-    public function getVersion(): string
-    {
-        return $this->call('GetVersion', new GetVersionRequest(), GetVersionResponse::class)->getVersion();
-    }
-
-    public function checkHealth(): HealthInfo
-    {
-        return new HealthInfo($this->call('CheckHealth', new CheckHealthRequest(), CheckHealthResponse::class));
-    }
-
-    public function connect(): ConnectResponse
-    {
-        return $this->call('Connect', new ConnectRequest(), ConnectResponse::class);
-    }
-
-    public function getComponentStates(): ComponentStates
-    {
-        return $this->call('GetComponentStates', new GetComponentStatesRequest(), ComponentStates::class);
-    }
-
-    public function getMetrics(string $requestStr): string
-    {
-        $resp = $this->call('GetMetrics', (new GetMetricsRequest())->setRequest($requestStr), GetMetricsResponse::class);
-        return $resp->getResponse();
-    }
-
-    // ========== Database ==========
-
     public function listDatabases(): array
     {
         $resp = $this->call('ListDatabases', new ListDatabasesRequest(), ListDatabasesResponse::class);
         $names = $resp->getDbNames();
-        return $names instanceof \Google\Protobuf\RepeatedField ? iterator_to_array($names) : (array)$names;
+        return $names instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($names) : (array)$names;
     }
 
     public function createDatabase(string $name): void
@@ -281,9 +263,11 @@ class Client extends BaseStub
         $this->call('DropDatabase', (new DropDatabaseRequest())->setDbName($name), Status::class);
     }
 
-    public function describeDatabase(string $name): DescribeDatabaseResponse
+    public function describeDatabase(string $name): DatabaseDescriptor
     {
-        return $this->call('DescribeDatabase', (new DescribeDatabaseRequest())->setDbName($name), DescribeDatabaseResponse::class);
+        return new DatabaseDescriptor(
+            $this->call('DescribeDatabase', (new DescribeDatabaseRequest())->setDbName($name), DescribeDatabaseResponse::class)
+        );
     }
 
     public function alterDatabase(string $name): void
@@ -297,25 +281,45 @@ class Client extends BaseStub
     {
         $resp = $this->call('ShowCollections', (new ShowCollectionsRequest())->setDbName($dbName ?? $this->database), ShowCollectionsResponse::class);
         $names = $resp->getCollectionNames();
-        return $names instanceof \Google\Protobuf\RepeatedField ? iterator_to_array($names) : (array)$names;
+        return $names instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($names) : (array)$names;
     }
 
-    public function createCollection(string $name, string $schema, ?string $dbName = null, int $shardsNum = 1): void
-    {
-        $req = (new CreateCollectionRequest())
+    /**
+     * Create a collection from an array of field definitions.
+     *
+     * Each field definition is an associative array with keys:
+     *   name (string, required), data_type (int, required), is_primary_key (bool),
+     *   autoID (bool), is_partition_key (bool), description (string),
+     *   type_params (array, e.g. ['dim' => 128, 'max_length' => 256]),
+     *   default_value (mixed), nullable (bool), element_type (int).
+     *
+     * Each function definition is an associative array with keys:
+     *   name (string, required), type (int, required, use FunctionType constants),
+     *   description (string), input_field_names (array), input_field_ids (array),
+     *   output_field_names (array), output_field_ids (array), params (array).
+     */
+    public function createCollection(
+        string $name,
+        array $fields = [],
+        string $description = '',
+        bool $enableDynamicField = false,
+        array $functions = [],
+        ?string $dbName = null,
+        int $shardsNum = 1,
+    ): void {
+        $schema = SchemaHelper::buildCollectionSchema($name, $fields, $description, $enableDynamicField, $functions);
+        $this->call('CreateCollection', (new CreateCollectionRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($name)
-            ->setSchema($schema)
-            ->setShardsNum($shardsNum);
-        $this->call('CreateCollection', $req, Status::class);
+            ->setSchema($schema->serializeToString())
+            ->setShardsNum($shardsNum), Status::class);
     }
 
     public function dropCollection(string $name, ?string $dbName = null): void
     {
-        $req = (new DropCollectionRequest())
+        $this->call('DropCollection', (new DropCollectionRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($name);
-        $this->call('DropCollection', $req, Status::class);
+            ->setCollectionName($name), Status::class);
     }
 
     public function hasCollection(string $name, ?string $dbName = null): bool
@@ -362,20 +366,24 @@ class Client extends BaseStub
             ->setCollectionName($name), Status::class);
     }
 
-    public function alterCollection(string $name, KeyValuePair $properties, ?string $dbName = null): void
+    /** Properties as an associative array, e.g. ['collection.ttl.seconds' => '3600']. */
+    public function alterCollection(string $name, array $properties, ?string $dbName = null): void
     {
-        $req = (new AlterCollectionRequest())
+        $pairs = [];
+        foreach ($properties as $k => $v) {
+            $pairs[] = (new KeyValuePair())->setKey((string)$k)->setValue((string)$v);
+        }
+        $this->call('AlterCollection', (new AlterCollectionRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($name)
-            ->setProperties([$properties]);
-        $this->call('AlterCollection', $req, Status::class);
+            ->setProperties($pairs), Status::class);
     }
 
-    public function getCollectionStatistics(string $name, ?string $dbName = null): GetCollectionStatisticsResponse
+    public function getCollectionStatistics(string $name, ?string $dbName = null): CollectionStats
     {
-        return $this->call('GetCollectionStatistics', (new GetCollectionStatisticsRequest())
+        return new CollectionStats($this->call('GetCollectionStatistics', (new GetCollectionStatisticsRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($name), GetCollectionStatisticsResponse::class);
+            ->setCollectionName($name), GetCollectionStatisticsResponse::class));
     }
 
     // ========== Partition ==========
@@ -405,86 +413,64 @@ class Client extends BaseStub
         return $resp->getValue();
     }
 
-    public function showPartitions(string $collectionName, ?string $dbName = null): ShowPartitionsResponse
+    public function showPartitions(string $collectionName, ?string $dbName = null): PartitionList
     {
-        return $this->call('ShowPartitions', (new ShowPartitionsRequest())
+        return new PartitionList($this->call('ShowPartitions', (new ShowPartitionsRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), ShowPartitionsResponse::class);
+            ->setCollectionName($collectionName), ShowPartitionsResponse::class));
     }
 
     public function loadPartitions(string $collectionName, array $partitionNames, ?string $dbName = null): void
     {
-        $req = (new LoadPartitionsRequest())
+        $this->call('LoadPartitions', (new LoadPartitionsRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setPartitionNames($partitionNames);
-        $this->call('LoadPartitions', $req, Status::class);
+            ->setPartitionNames($partitionNames), Status::class);
     }
 
     public function releasePartitions(string $collectionName, array $partitionNames, ?string $dbName = null): void
     {
-        $req = (new ReleasePartitionsRequest())
+        $this->call('ReleasePartitions', (new ReleasePartitionsRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setPartitionNames($partitionNames);
-        $this->call('ReleasePartitions', $req, Status::class);
+            ->setPartitionNames($partitionNames), Status::class);
     }
 
     // ========== Index ==========
 
-    public function createIndex(string $collectionName, string $fieldName, $indexType = 'FLAT', ?string $dbName = null, array $extraParams = []): void
-    {
-        $req = (new CreateIndexRequest())
+    /**
+     * Params may include:
+     *   index_type (string, default 'FLAT'), metric_type (string, default 'L2'),
+     *   index_name (string, optional), and index-specific options.
+     */
+    public function createIndex(
+        string $collectionName,
+        string $fieldName,
+        ?string $dbName = null,
+        array $params = [],
+    ): void {
+        $kvPairs = [];
+        foreach (['index_type' => 'FLAT', 'metric_type' => 'L2'] as $key => $default) {
+            $kvPairs[] = (new KeyValuePair())->setKey($key)->setValue((string)($params[$key] ?? $default));
+        }
+        if (isset($params['index_name'])) {
+            $kvPairs[] = (new KeyValuePair())->setKey('index_name')->setValue($params['index_name']);
+        }
+        unset($params['index_type'], $params['metric_type'], $params['index_name']);
+        foreach ($params as $k => $v) {
+            $kvPairs[] = (new KeyValuePair())->setKey((string)$k)->setValue((string)$v);
+        }
+
+        $this->call('CreateIndex', (new CreateIndexRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setFieldName($fieldName);
-        
-        if (is_int($indexType)) {
-            $indexType = $this->indexTypeIntToString($indexType);
-        }
-        
-        $defaultParams = [
-            'index_type' => $indexType,
-            'metric_type' => 'L2',
-        ];
-        
-        $params = array_merge($defaultParams, $extraParams);
-        $kvPairs = [];
-        foreach ($params as $k => $v) {
-            $kvPairs[] = (new KeyValuePair())->setKey($k)->setValue((string)$v);
-        }
-        $req->setExtraParams($kvPairs);
-        
-        $this->call('CreateIndex', $req, Status::class);
-    }
-
-    private function indexTypeIntToString(int $indexType): string
-    {
-        $map = [
-            0 => 'INVALID',
-            1 => 'FLAT',
-            2 => 'IVFFLAT',
-            3 => 'IVFSQ8',
-            4 => 'IVFPQ',
-            5 => 'HNSW',
-            10 => 'DISKANN',
-            50 => 'AUTOINDEX',
-            55 => 'GPUIVFFLAT',
-            56 => 'GPUIVFSQ8',
-            80 => 'BINFLAT',
-            81 => 'BINIVFFLAT',
-            90 => 'TANTAMI',
-            100 => 'SPARSEINVERTEDINDEX',
-            101 => 'SPARSEWAND',
-        ];
-        return $map[$indexType] ?? 'FLAT';
+            ->setFieldName($fieldName)
+            ->setExtraParams($kvPairs), Status::class);
     }
 
     public function describeIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): IndexInfo
     {
-        $req = (new DescribeIndexRequest())
-            ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName);
+        $req = (new DescribeIndexRequest())->setDbName($dbName ?? $this->database)->setCollectionName($collectionName);
         if ($fieldName) $req->setFieldName($fieldName);
         if ($indexName) $req->setIndexName($indexName);
         return new IndexInfo($this->call('DescribeIndex', $req, DescribeIndexResponse::class));
@@ -492,141 +478,125 @@ class Client extends BaseStub
 
     public function dropIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): void
     {
-        $req = (new DropIndexRequest())
-            ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName);
+        $req = (new DropIndexRequest())->setDbName($dbName ?? $this->database)->setCollectionName($collectionName);
         if ($fieldName) $req->setFieldName($fieldName);
         if ($indexName) $req->setIndexName($indexName);
         $this->call('DropIndex', $req, Status::class);
     }
 
-    public function getIndexState(string $collectionName, string $fieldName = '', ?string $dbName = null): GetIndexStateResponse
+    public function getIndexState(string $collectionName, string $fieldName = '', ?string $dbName = null): IndexStateInfo
     {
-        $req = (new GetIndexStateRequest())
-            ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName);
+        $req = (new GetIndexStateRequest())->setDbName($dbName ?? $this->database)->setCollectionName($collectionName);
         if ($fieldName) $req->setFieldName($fieldName);
-        return $this->call('GetIndexState', $req, GetIndexStateResponse::class);
+        return new IndexStateInfo($this->call('GetIndexState', $req, GetIndexStateResponse::class));
     }
 
-    public function getIndexBuildProgress(string $collectionName, string $fieldName = '', ?string $dbName = null): GetIndexBuildProgressResponse
+    public function getIndexBuildProgress(string $collectionName, string $fieldName = '', ?string $dbName = null): IndexBuildProgress
     {
-        $req = (new GetIndexBuildProgressRequest())
-            ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName);
+        $req = (new GetIndexBuildProgressRequest())->setDbName($dbName ?? $this->database)->setCollectionName($collectionName);
         if ($fieldName) $req->setFieldName($fieldName);
-        return $this->call('GetIndexBuildProgress', $req, GetIndexBuildProgressResponse::class);
+        return new IndexBuildProgress($this->call('GetIndexBuildProgress', $req, GetIndexBuildProgressResponse::class));
     }
 
     public function getIndexStatistics(string $collectionName, string $indexName = '', ?string $dbName = null): GetIndexStatisticsResponse
     {
-        $req = (new GetIndexStatisticsRequest())
-            ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName);
+        $req = (new GetIndexStatisticsRequest())->setDbName($dbName ?? $this->database)->setCollectionName($collectionName);
         if ($indexName) $req->setIndexName($indexName);
         return $this->call('GetIndexStatistics', $req, GetIndexStatisticsResponse::class);
     }
 
     // ========== Data ==========
 
-    public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): ResponseMutationResult
+    public function insert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
     {
-        $numRows = 0;
-        if (!empty($fieldsData)) {
-            $firstField = $fieldsData[0];
-            if ($firstField->getVectors()) {
-                $vectors = $firstField->getVectors();
-                $numRows = count($vectors->getFloatVector()->getData()) / $vectors->getDim();
-            } elseif ($firstField->getScalars()) {
-                $scalars = $firstField->getScalars();
-                if ($scalars->getLongData()) {
-                    $numRows = count($scalars->getLongData()->getData());
-                } elseif ($scalars->getIntData()) {
-                    $numRows = count($scalars->getIntData()->getData());
-                } elseif ($scalars->getFloatData()) {
-                    $numRows = count($scalars->getFloatData()->getData());
-                } elseif ($scalars->getStringData()) {
-                    $numRows = count($scalars->getStringData()->getData());
-                }
-            }
-        }
-        
-        $req = (new InsertRequest())
+        $numRows = $this->inferNumRows($fieldsData);
+        return new MutationResult($this->call('Insert', (new InsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows((int)$numRows);
-        return new ResponseMutationResult($this->call('Insert', $req, MutationResult::class));
+            ->setNumRows($numRows), ProtoMutationResult::class));
     }
 
-    public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): ResponseMutationResult
+    public function upsert(string $collectionName, array $fieldsData, ?string $dbName = null): MutationResult
     {
-        $numRows = 0;
-        if (!empty($fieldsData)) {
-            $firstField = $fieldsData[0];
-            if ($firstField->getVectors()) {
-                $vectors = $firstField->getVectors();
-                $numRows = count($vectors->getFloatVector()->getData()) / $vectors->getDim();
-            } elseif ($firstField->getScalars()) {
-                $scalars = $firstField->getScalars();
-                if ($scalars->getLongData()) {
-                    $numRows = count($scalars->getLongData()->getData());
-                } elseif ($scalars->getIntData()) {
-                    $numRows = count($scalars->getIntData()->getData());
-                } elseif ($scalars->getFloatData()) {
-                    $numRows = count($scalars->getFloatData()->getData());
-                } elseif ($scalars->getStringData()) {
-                    $numRows = count($scalars->getStringData()->getData());
-                }
-            }
-        }
-        
-        $req = (new UpsertRequest())
+        $numRows = $this->inferNumRows($fieldsData);
+        return new MutationResult($this->call('Upsert', (new UpsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows((int)$numRows);
-        return new ResponseMutationResult($this->call('Upsert', $req, MutationResult::class));
+            ->setNumRows($numRows), ProtoMutationResult::class));
     }
 
-    public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): ResponseMutationResult
+    public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): MutationResult
     {
         $req = (new DeleteRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setExpr($expr);
         if ($partitionName) $req->setPartitionName($partitionName);
-        return new ResponseMutationResult($this->call('Delete', $req, MutationResult::class));
+        return new MutationResult($this->call('Delete', $req, ProtoMutationResult::class));
     }
 
-    public function search(SearchRequest $request): SearchResult
+    /** Search with simple parameters. For advanced options, use searchRaw(). */
+    public function search(
+        string $collectionName,
+        array $vectors,
+        string $annsField,
+        int $topK = 100,
+        array $params = [],
+        array $outputFields = [],
+        string $filter = '',
+        ?string $dbName = null,
+        ?array $searchParams = null,
+    ): SearchResult {
+        $req = SearchHelper::buildSearchRequest(
+            $collectionName, $vectors, $annsField, $topK,
+            $params, $outputFields, $filter, $dbName ?? '', $searchParams
+        );
+        return new SearchResult($this->call('Search', $req, SearchResults::class));
+    }
+
+    /** Advanced search with a raw SearchRequest (built via SearchHelper::buildSearchRequest). */
+    public function searchRaw(SearchRequest $request): SearchResult
     {
         return new SearchResult($this->call('Search', $request, SearchResults::class));
     }
 
+    /** Hybrid search accepts a protobuf HybridSearchRequest. */
     public function hybridSearch(HybridSearchRequest $request): SearchResult
     {
         return new SearchResult($this->call('HybridSearch', $request, SearchResults::class));
     }
 
-    public function query(string $collectionName, string $expr, array $outputFields = [], ?string $dbName = null): QueryResult
-    {
+    public function query(
+        string $collectionName,
+        string $expr,
+        array $outputFields = [],
+        ?string $dbName = null,
+        int $limit = 0,
+        int $offset = 0,
+    ): QueryResult {
         $req = (new QueryRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setExpr($expr);
         if ($outputFields) $req->setOutputFields($outputFields);
+        if ($limit > 0 || $offset > 0) {
+            $params = [];
+            if ($limit > 0) $params[] = (new KeyValuePair())->setKey('limit')->setValue((string)$limit);
+            if ($offset > 0) $params[] = (new KeyValuePair())->setKey('offset')->setValue((string)$offset);
+            $req->setQueryParams($params);
+        }
         return new QueryResult($this->call('Query', $req, QueryResults::class));
     }
 
     // ========== Flush ==========
 
-    public function flush(string $collectionName, ?string $dbName = null): FlushResponse
+    public function flush(string $collectionName, ?string $dbName = null): FlushResult
     {
-        $req = (new FlushRequest())
+        return new FlushResult($this->call('Flush', (new FlushRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionNames([$collectionName]);
-        return $this->call('Flush', $req, FlushResponse::class);
+            ->setCollectionNames([$collectionName]), FlushResponse::class));
     }
 
     public function flushAll(): FlushAllResponse
@@ -636,33 +606,31 @@ class Client extends BaseStub
 
     public function getFlushState(array $segmentIDs): bool
     {
-        $req = (new GetFlushStateRequest())->setSegmentIDs($segmentIDs);
-        $resp = $this->call('GetFlushState', $req, GetFlushStateResponse::class);
-        return $resp->getFlushed();
+        return $this->call('GetFlushState', (new GetFlushStateRequest())->setSegmentIDs($segmentIDs), GetFlushStateResponse::class)
+            ->getFlushed();
     }
 
     public function getFlushAllState(int $flushAllTs): bool
     {
-        $req = (new GetFlushAllStateRequest())->setFlushAllTs($flushAllTs);
-        $resp = $this->call('GetFlushAllState', $req, GetFlushAllStateResponse::class);
-        return $resp->getFlushed();
+        return $this->call('GetFlushAllState', (new GetFlushAllStateRequest())->setFlushAllTs($flushAllTs), GetFlushAllStateResponse::class)
+            ->getFlushed();
     }
 
     // ========== Loading ==========
 
-    public function getLoadingProgress(string $collectionName, ?string $dbName = null): GetLoadingProgressResponse
+    public function getLoadingProgress(string $collectionName, ?string $dbName = null): LoadingProgress
     {
-        return $this->call('GetLoadingProgress', (new GetLoadingProgressRequest())
+        return new LoadingProgress($this->call('GetLoadingProgress', (new GetLoadingProgressRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), GetLoadingProgressResponse::class);
+            ->setCollectionName($collectionName), GetLoadingProgressResponse::class));
     }
 
     public function getLoadState(string $collectionName, ?string $dbName = null): int
     {
-        $resp = $this->call('GetLoadState', (new GetLoadStateRequest())
+        return $this->call('GetLoadState', (new GetLoadStateRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), GetLoadStateResponse::class);
-        return $resp->getState();
+            ->setCollectionName($collectionName), GetLoadStateResponse::class)
+            ->getState();
     }
 
     // ========== Alias ==========
@@ -690,11 +658,11 @@ class Client extends BaseStub
             ->setAlias($alias), Status::class);
     }
 
-    public function describeAlias(string $alias, ?string $dbName = null): DescribeAliasResponse
+    public function describeAlias(string $alias, ?string $dbName = null): AliasDescriptor
     {
-        return $this->call('DescribeAlias', (new DescribeAliasRequest())
+        return new AliasDescriptor($this->call('DescribeAlias', (new DescribeAliasRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setAlias($alias), DescribeAliasResponse::class);
+            ->setAlias($alias), DescribeAliasResponse::class));
     }
 
     public function listAliases(string $collectionName = '', ?string $dbName = null): array
@@ -703,7 +671,7 @@ class Client extends BaseStub
         if ($collectionName) $req->setCollectionName($collectionName);
         $resp = $this->call('ListAliases', $req, ListAliasesResponse::class);
         $aliases = $resp->getAliases();
-        return $aliases instanceof \Google\Protobuf\RepeatedField ? iterator_to_array($aliases) : (array)$aliases;
+        return $aliases instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($aliases) : (array)$aliases;
     }
 
     // ========== Auth ==========
@@ -711,29 +679,25 @@ class Client extends BaseStub
     public function createCredential(string $username, string $password): void
     {
         $this->call('CreateCredential', (new CreateCredentialRequest())
-            ->setUsername($username)
-            ->setPassword($password), Status::class);
+            ->setUsername($username)->setPassword($password), Status::class);
     }
 
     public function updateCredential(string $username, string $oldPassword, string $newPassword): void
     {
         $this->call('UpdateCredential', (new UpdateCredentialRequest())
-            ->setUsername($username)
-            ->setOldPassword($oldPassword)
-            ->setNewPassword($newPassword), Status::class);
+            ->setUsername($username)->setOldPassword($oldPassword)->setNewPassword($newPassword), Status::class);
     }
 
     public function deleteCredential(string $username): void
     {
-        $this->call('DeleteCredential', (new DeleteCredentialRequest())
-            ->setUsername($username), Status::class);
+        $this->call('DeleteCredential', (new DeleteCredentialRequest())->setUsername($username), Status::class);
     }
 
     public function listCredUsers(): array
     {
         $resp = $this->call('ListCredUsers', new ListCredUsersRequest(), ListCredUsersResponse::class);
         $usernames = $resp->getUsernames();
-        return $usernames instanceof \Google\Protobuf\RepeatedField ? iterator_to_array($usernames) : (array)$usernames;
+        return $usernames instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($usernames) : (array)$usernames;
     }
 
     // ========== RBAC ==========
@@ -752,11 +716,8 @@ class Client extends BaseStub
 
     public function operateUserRole(string $username, string $roleName, int $type): void
     {
-        $req = (new OperateUserRoleRequest())
-            ->setUsername($username)
-            ->setRoleName($roleName)
-            ->setType($type);
-        $this->call('OperateUserRole', $req, Status::class);
+        $this->call('OperateUserRole', (new OperateUserRoleRequest())
+            ->setUsername($username)->setRoleName($roleName)->setType($type), Status::class);
     }
 
     public function selectRole(string $roleName = ''): SelectRoleResponse
@@ -789,7 +750,7 @@ class Client extends BaseStub
     {
         $resp = $this->call('ListResourceGroups', new ListResourceGroupsRequest(), ListResourceGroupsResponse::class);
         $groups = $resp->getResourceGroups();
-        return $groups instanceof \Google\Protobuf\RepeatedField ? iterator_to_array($groups) : (array)$groups;
+        return $groups instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($groups) : (array)$groups;
     }
 
     public function describeResourceGroup(string $name): DescribeResourceGroupResponse
@@ -808,71 +769,140 @@ class Client extends BaseStub
 
     // ========== Import ==========
 
-    public function import(string $collectionName, array $files, ?string $dbName = null): ImportResponse
+    public function import(string $collectionName, array $files, ?string $dbName = null): ImportResult
     {
-        $req = (new ImportRequest())
+        return new ImportResult($this->call('Import', (new ImportRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
-            ->setFiles($files);
-        return $this->call('Import', $req, ImportResponse::class);
+            ->setFiles($files), ImportResponse::class));
     }
 
-    public function getImportState(int $taskId): GetImportStateResponse
+    public function getImportState(int $taskId): ImportState
     {
-        return $this->call('GetImportState', (new GetImportStateRequest())->setTask($taskId), GetImportStateResponse::class);
+        return new ImportState($this->call('GetImportState', (new GetImportStateRequest())->setTask($taskId), GetImportStateResponse::class));
     }
 
-    public function listImportTasks(string $collectionName = '', int $limit = 0, ?string $dbName = null): ListImportTasksResponse
+    public function listImportTasks(string $collectionName = '', int $limit = 0, ?string $dbName = null): ImportTasks
     {
         $req = (new ListImportTasksRequest())->setDbName($dbName ?? $this->database);
         if ($collectionName) $req->setCollectionName($collectionName);
         if ($limit > 0) $req->setLimit($limit);
-        return $this->call('ListImportTasks', $req, ListImportTasksResponse::class);
+        return new ImportTasks($this->call('ListImportTasks', $req, ListImportTasksResponse::class));
     }
 
     // ========== Compaction ==========
 
-    public function manualCompaction(int $collectionID): ManualCompactionResponse
+    public function manualCompaction(int $collectionID): CompactionResult
     {
-        return $this->call('ManualCompaction', (new ManualCompactionRequest())->setCollectionID($collectionID), ManualCompactionResponse::class);
+        return new CompactionResult($this->call('ManualCompaction', (new ManualCompactionRequest())->setCollectionID($collectionID), ManualCompactionResponse::class));
     }
 
-    public function getCompactionState(int $compactionID): GetCompactionStateResponse
+    public function getCompactionState(int $compactionID): CompactionState
     {
-        return $this->call('GetCompactionState', (new GetCompactionStateRequest())->setCompactionID($compactionID), GetCompactionStateResponse::class);
+        return new CompactionState($this->call('GetCompactionState', (new GetCompactionStateRequest())->setCompactionID($compactionID), GetCompactionStateResponse::class));
     }
 
     // ========== Segment ==========
 
-    public function getPersistentSegmentInfo(string $collectionName, ?string $dbName = null): GetPersistentSegmentInfoResponse
+    public function getPersistentSegmentInfo(string $collectionName, ?string $dbName = null): SegmentInfo
     {
-        return $this->call('GetPersistentSegmentInfo', (new GetPersistentSegmentInfoRequest())
+        return new SegmentInfo($this->call('GetPersistentSegmentInfo', (new GetPersistentSegmentInfoRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), GetPersistentSegmentInfoResponse::class);
+            ->setCollectionName($collectionName), GetPersistentSegmentInfoResponse::class));
     }
 
-    public function getQuerySegmentInfo(string $collectionName, ?string $dbName = null): GetQuerySegmentInfoResponse
+    public function getQuerySegmentInfo(string $collectionName, ?string $dbName = null): SegmentInfo
     {
-        return $this->call('GetQuerySegmentInfo', (new GetQuerySegmentInfoRequest())
+        return new SegmentInfo($this->call('GetQuerySegmentInfo', (new GetQuerySegmentInfoRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), GetQuerySegmentInfoResponse::class);
+            ->setCollectionName($collectionName), GetQuerySegmentInfoResponse::class));
     }
 
     // ========== Replica ==========
 
-    public function getReplicas(string $collectionName, ?string $dbName = null): GetReplicasResponse
+    public function getReplicas(string $collectionName, ?string $dbName = null): ReplicaInfo
     {
-        return $this->call('GetReplicas', (new GetReplicasRequest())
+        return new ReplicaInfo($this->call('GetReplicas', (new GetReplicasRequest())
             ->setDbName($dbName ?? $this->database)
-            ->setCollectionName($collectionName), GetReplicasResponse::class);
+            ->setCollectionName($collectionName), GetReplicasResponse::class));
     }
 
     // ========== Analyzer ==========
 
-    public function runAnalyzer(RunAnalyzerRequest $request): \Milvus\SDK\Response\RunAnalyzerResult
+    /** Run analyzer with text directly. For full control, use runAnalyzerRequest(). */
+    public function runAnalyzer(
+        string $text,
+        array $analyzerParams = [],
+        bool $withDetail = false,
+        ?string $collectionName = null,
+        ?string $fieldName = null,
+        ?string $dbName = null,
+    ): RunAnalyzerResult {
+        $req = (new RunAnalyzerRequest())
+            ->setDbName($dbName ?? $this->database)
+            ->setAnalyzerParams(json_encode($analyzerParams ?: ['type' => 'chinese']))
+            ->setPlaceholder([$text])
+            ->setWithDetail($withDetail);
+        if ($collectionName) $req->setCollectionName($collectionName);
+        if ($fieldName) $req->setFieldName($fieldName);
+        return new RunAnalyzerResult($this->call('RunAnalyzer', $req, RunAnalyzerResponse::class));
+    }
+
+    /** Advanced: pass a raw RunAnalyzerRequest. */
+    public function runAnalyzerRequest(RunAnalyzerRequest $request): RunAnalyzerResult
     {
-        return new \Milvus\SDK\Response\RunAnalyzerResult(
-            $this->call('RunAnalyzer', $request, RunAnalyzerResponse::class)
-        );
+        return new RunAnalyzerResult($this->call('RunAnalyzer', $request, RunAnalyzerResponse::class));
+    }
+
+    // ========== System ==========
+
+    public function getVersion(): string
+    {
+        return $this->call('GetVersion', new GetVersionRequest(), GetVersionResponse::class)->getVersion();
+    }
+
+    public function checkHealth(): HealthInfo
+    {
+        return new HealthInfo($this->call('CheckHealth', new CheckHealthRequest(), CheckHealthResponse::class));
+    }
+
+    public function connect(): ConnectResponse
+    {
+        return $this->call('Connect', new ConnectRequest(), ConnectResponse::class);
+    }
+
+    public function getComponentStates(): ComponentStates
+    {
+        return $this->call('GetComponentStates', new GetComponentStatesRequest(), ComponentStates::class);
+    }
+
+    public function getMetrics(string $requestStr): string
+    {
+        return $this->call('GetMetrics', (new GetMetricsRequest())->setRequest($requestStr), GetMetricsResponse::class)
+            ->getResponse();
+    }
+
+    // ========== Internal Helpers ==========
+
+    private function inferNumRows(array $fieldsData): int
+    {
+        if (empty($fieldsData)) return 0;
+        $first = $fieldsData[0];
+        if ($first->getVectors()) {
+            $vectors = $first->getVectors();
+            return (int)(count($vectors->getFloatVector()->getData()) / max($vectors->getDim(), 1));
+        }
+        if ($first->getScalars()) {
+            $s = $first->getScalars();
+            foreach ([
+                $s->getLongData()?->getData(),
+                $s->getIntData()?->getData(),
+                $s->getFloatData()?->getData(),
+                $s->getStringData()?->getData(),
+            ] as $data) {
+                if ($data !== null) return count($data);
+            }
+        }
+        return 0;
     }
 }

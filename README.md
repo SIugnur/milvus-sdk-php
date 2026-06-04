@@ -32,33 +32,17 @@ pecl install protobuf   # optional, but recommended for performance
 ```php
 use Milvus\SDK\Client;
 
-// Local Milvus (insecure)
 $client = new Client([
-    'host' => 'localhost',
-    'port' => 19530,
-]);
-
-// With authentication
-$client = new Client([
-    'host' => 'localhost',
-    'port' => 19530,
-    'username' => 'root',
-    'password' => 'milvus',
-]);
-
-// With API token (Zilliz Cloud)
-$client = new Client([
-    'host' => 'your-endpoint.zillizcloud.com',
-    'port' => 19530,
-    'token' => 'your-api-key',
-    'ssl' => true,
-]);
-
-// Custom database
-$client = new Client([
-    'host' => 'localhost',
-    'port' => 19530,
-    'database' => 'custom_db',
+    'host'        => 'localhost',   // Milvus server host
+    'port'        => 19530,         // Milvus server port
+    'username'    => 'root',        // Optional: for authentication
+    'password'    => 'milvus',      // Optional: for authentication
+    'token'       => null,          // Optional: API token (Zilliz Cloud)
+    'ssl'         => false,         // Enable SSL/TLS
+    'database'    => 'default',     // Default database name
+    'timeout'     => 30,            // Request timeout in seconds
+    'max_retries' => 3,             // Max retry attempts
+    'retry_delay' => 10,            // Retry delay in milliseconds
 ]);
 ```
 
@@ -67,55 +51,33 @@ $client = new Client([
 ```php
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
-use Milvus\SDK\Constants\MetricType;
-use Milvus\SDK\Constants\IndexType;
+use Milvus\SDK\Helpers\DataHelper;
 
 $client = new Client(['host' => 'localhost', 'port' => 19530]);
 
-// 1. Create collection with schema
-$schema = (new \Milvus\Proto\Schema\CollectionSchema())
-    ->setName('my_collection')
-    ->setDescription('My test collection')
-    ->setAutoID(true)
-    ->setEnableDynamicField(true)
-    ->setFields([
-        (new \Milvus\Proto\Schema\FieldSchema())
-            ->setFieldID(1)
-            ->setName('id')
-            ->setIsPrimaryKey(true)
-            ->setAutoID(true)
-            ->setDataType(DataType::Int64),
-        (new \Milvus\Proto\Schema\FieldSchema())
-            ->setFieldID(2)
-            ->setName('vector')
-            ->setDataType(DataType::FloatVector)
-            ->setTypeParams([
-                (new \Milvus\Proto\Common\KeyValuePair())->setKey('dim')->setValue('128'),
-            ]),
-        (new \Milvus\Proto\Schema\FieldSchema())
-            ->setFieldID(3)
-            ->setName('text')
-            ->setDataType(DataType::VarChar)
-            ->setTypeParams([
-                (new \Milvus\Proto\Common\KeyValuePair())->setKey('max_length')->setValue('512'),
-            ]),
-    ]);
-
-$client->createCollection('my_collection', $schema->serializeToString());
+// 1. Create collection with array-based schema (NO protobuf required!)
+$client->createCollection(
+    'my_collection',
+    [
+        ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+        ['name' => 'vector', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 128]],
+        ['name' => 'text', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 512]],
+    ],
+    'My test collection',
+    true
+);
 
 // 2. Create index
-$client->createIndex('my_collection', 'vector', 'vector_idx', null, [
-    'index_type' => IndexType::IVFFLAT,
-    'metric_type' => MetricType::L2,
-    'params' => json_encode(['nlist' => 128]),
+$client->createIndex('my_collection', 'vector', null, [
+    'index_type' => 'IVFFLAT',
+    'metric_type' => 'L2',
+    'params' => '{"nlist": 128}',
 ]);
 
 // 3. Load collection into memory
 $client->loadCollection('my_collection');
 
 // 4. Insert data
-use Milvus\SDK\Helpers\DataHelper;
-
 $fieldsData = DataHelper::recordsToFieldData([
     ['vector' => array_fill(0, 128, 0.1), 'text' => 'document 1'],
     ['vector' => array_fill(0, 128, 0.2), 'text' => 'document 2'],
@@ -125,172 +87,159 @@ $fieldsData = DataHelper::recordsToFieldData([
 ]);
 
 $result = $client->insert('my_collection', $fieldsData);
-echo "Inserted IDs: " . json_encode($result->getIDs()) . "\n";
+echo "Inserted IDs: " . json_encode($result->getInsertIds()) . "\n";
 
-// 5. Search
-use Milvus\SDK\Helpers\SearchHelper;
-
-$searchReq = SearchHelper::buildSearchRequest(
+// 5. Search directly with simple parameters
+$results = $client->search(
     'my_collection',
-    [array_fill(0, 128, 0.15)],
-    'vector',
-    10,
-    ['nprobe' => 16],
-    ['text']
+    [array_fill(0, 128, 0.15)],  // Query vectors
+    'vector',                      // Vector field name
+    10,                           // Top K
+    ['nprobe' => 16],              // Search params
+    ['text'],                      // Output fields
+    '',                            // Filter expression
+    null                           // Database name
 );
 
-$results = $client->search($searchReq);
-print_r($results->getResults());
-```
-
-## Client Configuration
-
-```php
-$client = new Client([
-    'host'        => 'localhost',       // Milvus server host
-    'port'        => 19530,             // Milvus server port
-    'token'       => null,              // API token (Zilliz Cloud)
-    'username'    => null,              // Username for auth
-    'password'    => null,              // Password for auth
-    'ssl'         => false,             // Enable SSL/TLS
-    'database'    => 'default',         // Default database name
-    'timeout'     => 30,                // Request timeout in seconds
-    'max_retries' => 3,                 // Max retry attempts
-    'retry_delay' => 10,               // Retry delay in milliseconds
-]);
+print_r($results->toArray());
 ```
 
 ## API Reference
 
-### System Operations
-
-```php
-$version = $client->getVersion();                         // Server version
-$health = $client->checkHealth();                         // Health check
-$states = $client->getComponentStates();                  // Component states
-$metrics = $client->getMetrics('{"metric_key":"*"}');     // System metrics
-$response = $client->connect();                           // Connect
-```
-
 ### Database Operations
 
 ```php
-$client->createDatabase('my_db');                         // Create database
-$client->dropDatabase('my_db');                           // Drop database
-$databases = $client->listDatabases();                    // List all databases
-$info = $client->describeDatabase('my_db');               // Describe database
-$client->alterDatabase('my_db');                          // Alter database
+$client->createDatabase('my_db');
+$client->dropDatabase('my_db');
+$databases = $client->listDatabases();
+$info = $client->describeDatabase('my_db');  // Returns DatabaseDescriptor
+$client->alterDatabase('my_db');
 ```
 
 ### Collection Operations
 
 ```php
-$client->createCollection('name', $schemaString);         // Create collection
-$client->dropCollection('name');                          // Drop collection
-$exists = $client->hasCollection('name');                 // Check if exists
-$info = $client->describeCollection('name');              // Describe schema
-$client->loadCollection('name');                          // Load into memory
-$client->releaseCollection('name');                       // Release from memory
-$collections = $client->showCollections();                // List collections
-$client->renameCollection('old_name', 'new_name');        // Rename collection
-$client->truncateCollection('name');                      // Clear all data
-$client->alterCollection('name', $properties);            // Alter properties
-$stats = $client->getCollectionStatistics('name');        // Get statistics
+// Create collection with array-based schema
+$client->createCollection(
+    'my_collection',
+    [
+        ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+        ['name' => 'vec', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 128]],
+    ],
+    'Description',
+    true,   // enableDynamicField
+    'default',  // dbName (optional)
+    1       // shardsNum (optional)
+);
+
+$client->dropCollection('my_collection');
+$exists = $client->hasCollection('my_collection');
+$info = $client->describeCollection('my_collection');  // Returns CollectionInfo
+$client->loadCollection('my_collection');
+$client->releaseCollection('my_collection');
+$collections = $client->showCollections();
+$client->renameCollection('old_name', 'new_name');
+$client->truncateCollection('my_collection');
+$client->alterCollection('my_collection', ['collection.ttl.seconds' => '3600']);
+$stats = $client->getCollectionStatistics('my_collection');  // Returns CollectionStats
 ```
 
 ### Index Operations
 
 ```php
-$client->createIndex('collection', 'field', 'idx_name', null, [
+$client->createIndex('my_collection', 'vector', null, [
     'index_type' => 'IVFFLAT',
     'metric_type' => 'L2',
     'params' => '{"nlist": 128}',
-]);                                                        // Create index
-$info = $client->describeIndex('collection', 'field');     // Describe index
-$state = $client->getIndexState('collection', 'field');    // Get index state
-$progress = $client->getIndexBuildProgress('collection', 'field'); // Build progress
-$stats = $client->getIndexStatistics('collection');        // Index statistics
-$client->dropIndex('collection', 'field');                 // Drop index
-```
+]);
 
-### Partition Operations
-
-```php
-$client->createPartition('collection', 'partition_name');  // Create partition
-$client->dropPartition('collection', 'partition_name');    // Drop partition
-$exists = $client->hasPartition('collection', 'name');     // Check if exists
-$partitions = $client->showPartitions('collection');       // List partitions
-$client->loadPartitions('collection', ['p1', 'p2']);       // Load partitions
-$client->releasePartitions('collection', ['p1']);          // Release partitions
+$info = $client->describeIndex('my_collection', 'vector');  // Returns IndexInfo
+$state = $client->getIndexState('my_collection', 'vector');  // Returns IndexStateInfo
+$progress = $client->getIndexBuildProgress('my_collection', 'vector');  // Returns IndexBuildProgress
+$client->dropIndex('my_collection', 'vector');
 ```
 
 ### Data Operations
 
-#### insert
+#### Insert
 
 ```php
 use Milvus\SDK\Helpers\DataHelper;
 
-$fieldsData = DataHelper::recordsToFieldData($records, $schema);
-$result = $client->insert('collection', $fieldsData);
-// Returns: MutationResult with IDs, succ_index, err_index
+$fieldsData = DataHelper::recordsToFieldData([
+    ['vector' => [0.1, 0.2, 0.3], 'text' => 'doc1'],
+    ['vector' => [0.4, 0.5, 0.6], 'text' => 'doc2'],
+], [
+    'vector' => DataType::FloatVector,
+    'text' => DataType::VarChar,
+]);
+
+$result = $client->insert('my_collection', $fieldsData);
+$ids = $result->getInsertIds();
 ```
 
-#### upsert
+#### Upsert
 
 ```php
-$result = $client->upsert('collection', $fieldsData);
+$result = $client->upsert('my_collection', $fieldsData);
 ```
 
-#### delete
+#### Delete
 
 ```php
-// By expression
-$result = $client->delete('collection', "id in [1, 2, 3]");
-// With partition
-$result = $client->delete('collection', "age > 18", 'default', 'my_partition');
+$result = $client->delete('my_collection', 'id in [1, 2, 3]');
+$result = $client->delete('my_collection', 'age > 18', 'default', 'my_partition');
 ```
 
-#### search
+#### Search
 
 ```php
-use Milvus\SDK\Helpers\SearchHelper;
-
-$req = SearchHelper::buildSearchRequest(
-    collectionName: 'my_collection',
-    vectors: [[0.1, 0.2, ...]],     // Query vector(s)
-    annsField: 'vector',             // Vector field name
-    topK: 10,                        // Number of results
-    params: ['nprobe' => 16],        // Index-specific params
-    outputFields: ['text'],          // Fields to return
-    filter: 'text like "doc%"',      // Optional filter
-    dbName: ''                       // Optional database name
+// Simple search (most common use case)
+$results = $client->search(
+    'my_collection',
+    [[0.1, 0.2, 0.3]],      // Query vectors
+    'vector',                // Vector field
+    10,                      // Top K
+    ['nprobe' => 16],        // Search params
+    ['text'],                // Output fields
+    'text like "doc%"',      // Filter expression
+    'default'                // Database name
 );
-$results = $client->search($req);
+
+// Results as rows with id, score, and output fields
+$rows = $results->toArray();
+// [
+//     ['id' => 1, 'score' => 0.5, 'text' => 'doc1'],
+//     ['id' => 2, 'score' => 0.8, 'text' => 'doc2'],
+// ]
 ```
 
-#### query
+#### Query
 
 ```php
-$results = $client->query('collection', 'id > 10', ['id', 'text']);
+// Basic query
+$results = $client->query('my_collection', 'id > 10', ['id', 'text']);
+
+// Query with pagination
+$results = $client->query('my_collection', 'age > 18', ['id', 'name'], 'default', 10, 0);
 ```
 
 ### Flush Operations
 
 ```php
-$result = $client->flush('collection');                    // Flush collection
-$client->flushAll();                                       // Flush all collections
-$flushed = $client->getFlushState([1, 2, 3]);              // Check flush state
+$result = $client->flush('my_collection');  // Returns FlushResult
+$client->flushAll();
+$flushed = $client->getFlushState([1, 2, 3]);
 ```
 
 ### Alias Operations
 
 ```php
-$client->createAlias('collection', 'my_alias');            // Create alias
-$client->dropAlias('my_alias');                            // Drop alias
-$client->alterAlias('collection', 'my_alias');             // Alter alias
-$info = $client->describeAlias('my_alias');                // Describe alias
-$aliases = $client->listAliases('collection');             // List aliases
+$client->createAlias('my_collection', 'my_alias');
+$client->dropAlias('my_alias');
+$client->alterAlias('new_collection', 'my_alias');
+$info = $client->describeAlias('my_alias');  // Returns AliasDescriptor
+$aliases = $client->listAliases('my_collection');
 ```
 
 ### User & Role Management (RBAC)
@@ -306,10 +255,6 @@ $users = $client->listCredUsers();
 $client->createRole('admin');
 $client->dropRole('admin');
 $client->operateUserRole('username', 'admin', \Milvus\SDK\Constants\OperateUserRoleType::AddUserToRole);
-
-// Query
-$roles = $client->selectRole('admin');
-$users = $client->selectUser('username');
 ```
 
 ### Resource Group Operations
@@ -325,95 +270,74 @@ $client->transferReplica('source', 'target', 'collection', 2);
 ### Import Operations
 
 ```php
-$result = $client->import('collection', ['data.json']);
-$state = $client->getImportState(12345);
-$tasks = $client->listImportTasks('collection', 10);
+$result = $client->import('my_collection', ['data.json']);  // Returns ImportResult
+$state = $client->getImportState(12345);  // Returns ImportState
+$tasks = $client->listImportTasks('my_collection', 10);  // Returns ImportTasks
 ```
 
 ### Compaction Operations
 
 ```php
-$result = $client->manualCompaction(12345);
-$state = $client->getCompactionState(12345);
+$result = $client->manualCompaction(12345);  // Returns CompactionResult
+$state = $client->getCompactionState(12345);  // Returns CompactionState
 ```
 
-### Segment Operations
+### Analyzer Operations
 
 ```php
-$info = $client->getPersistentSegmentInfo('collection');
-$info = $client->getQuerySegmentInfo('collection');
-```
+// Simple analyzer call
+$result = $client->runAnalyzer('Hello world', ['type' => 'chinese'], true);
 
-## Using SchemaHelper
-
-```php
-use Milvus\SDK\Helpers\SchemaHelper;
-use Milvus\SDK\Constants\DataType;
-
-$schema = SchemaHelper::buildCollectionSchema(
+// Full control with parameters
+$result = $client->runAnalyzer(
+    'text to analyze',
+    ['type' => 'chinese'],
+    true,           // withDetail
     'my_collection',
-    [
-        ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
-        ['name' => 'vector', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 128]],
-        ['name' => 'text', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 512]],
-    ],
-    'Collection description',
-    true
+    'text_field',
+    'default'
 );
 
-$client->createCollection('my_collection', $schema->serializeToString());
+$tokens = $result->getResults();
 ```
 
-## Using DataHelper
+### System Operations
 
 ```php
-use Milvus\SDK\Helpers\DataHelper;
-use Milvus\SDK\Constants\DataType;
-
-$fieldsData = DataHelper::buildFieldData('vector', [[0.1, 0.2], [0.3, 0.4]], DataType::FloatVector);
-
-$fieldsData = DataHelper::recordsToFieldData(
-    [
-        ['id' => 1, 'text' => 'hello'],
-        ['id' => 2, 'text' => 'world'],
-    ],
-    ['id' => DataType::Int64, 'text' => DataType::VarChar]
-);
+$version = $client->getVersion();
+$health = $client->checkHealth();  // Returns HealthInfo
+$states = $client->getComponentStates();
+$metrics = $client->getMetrics('{"metric_key":"*"}');
 ```
 
-## Using SearchHelper
+## Response Objects
 
-```php
-use Milvus\SDK\Helpers\SearchHelper;
+All response objects provide getter methods and a `toArray()` method where applicable:
 
-$searchReq = SearchHelper::buildSearchRequest(
-    'my_collection', [$queryVector], 'vector', 10,
-    ['nprobe' => 16], ['id', 'text'], 'id > 0'
-);
-$results = $client->search($searchReq);
-
-$queryReq = SearchHelper::buildQueryRequest('my_collection', 'id > 10', ['id', 'text']);
-```
-
-## Advanced Examples
-
-### Hybrid Search
-
-```php
-$denseSearch = SearchHelper::buildSearchRequest('my_collection', [$denseVector], 'dense_field', 30, ['nprobe' => 20]);
-$sparseSearch = SearchHelper::buildSearchRequest('my_collection', ['search text'], 'sparse_field', 30, ['analyzer_name' => 'chinese']);
-
-$hybridReq = (new \Milvus\Proto\Milvus\HybridSearchRequest())
-    ->setCollectionName('my_collection')
-    ->setRequests([$denseSearch, $sparseSearch])
-    ->setOutputFields(['id', 'title'])
-    ->setRankParams([
-        (new \Milvus\Proto\Common\KeyValuePair())->setKey('strategy')->setValue('rrf'),
-        (new \Milvus\Proto\Common\KeyValuePair())->setKey('limit')->setValue('30'),
-    ]);
-
-$results = $client->hybridSearch($hybridReq);
-```
+| Response Class | Description |
+|---------------|-------------|
+| `DatabaseDescriptor` | Database information |
+| `CollectionInfo` | Collection schema and metadata |
+| `CollectionStats` | Collection statistics (row count, data size) |
+| `IndexInfo` | Index description |
+| `IndexStateInfo` | Index build state |
+| `IndexBuildProgress` | Index build progress |
+| `MutationResult` | Insert/upsert/delete result |
+| `SearchResult` | Search results with IDs and scores |
+| `QueryResult` | Query results |
+| `FlushResult` | Flush operation result |
+| `LoadingProgress` | Collection loading progress |
+| `AliasDescriptor` | Alias information |
+| `ImportResult` | Import task result |
+| `ImportState` | Import task state |
+| `ImportTasks` | List of import tasks |
+| `CompactionResult` | Compaction result |
+| `CompactionState` | Compaction state |
+| `PartitionList` | List of partitions |
+| `ReplicaInfo` | Replica information |
+| `SegmentInfo` | Segment information |
+| `HealthInfo` | Health check result |
+| `RunAnalyzerResult` | Analyzer tokenization result |
 
 ## Error Handling
 

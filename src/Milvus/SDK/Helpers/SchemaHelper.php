@@ -5,11 +5,13 @@ use Milvus\Proto\Common\KeyValuePair;
 use Milvus\Proto\Schema\CollectionSchema;
 use Milvus\Proto\Schema\FieldSchema;
 use Milvus\Proto\Schema\DataType;
+use Milvus\Proto\Schema\FunctionSchema;
+use Milvus\Proto\Schema\FunctionType;
 use Milvus\SDK\Exceptions\ParamException;
 
 class SchemaHelper
 {
-    public static function buildCollectionSchema(string $name, array $fields, string $description = '', bool $enableDynamicField = false): CollectionSchema
+    public static function buildCollectionSchema(string $name, array $fields, string $description = '', bool $enableDynamicField = false, array $functions = []): CollectionSchema
     {
         $schema = new CollectionSchema();
         $schema->setName($name);
@@ -21,6 +23,12 @@ class SchemaHelper
             $fieldObjs[] = self::buildFieldSchema($field, $i + 1);
         }
         $schema->setFields($fieldObjs);
+
+        $functionObjs = [];
+        foreach ($functions as $i => $function) {
+            $functionObjs[] = self::buildFunctionSchema($function, $i + 1);
+        }
+        $schema->setFunctions($functionObjs);
 
         return $schema;
     }
@@ -87,5 +95,46 @@ class SchemaHelper
             $pairs[] = self::buildKeyValuePair($key, (string)$value);
         }
         return $pairs;
+    }
+
+    public static function buildFunctionSchema(array $function, int $functionId = 1): FunctionSchema
+    {
+        if (!isset($function['name'])) {
+            throw new ParamException('Function name is required');
+        }
+        if (!isset($function['type'])) {
+            throw new ParamException('Function type is required');
+        }
+
+        $fs = new FunctionSchema();
+        $fs->setId($functionId);
+        $fs->setName($function['name']);
+        $fs->setType($function['type']);
+
+        if (isset($function['description'])) {
+            $fs->setDescription($function['description']);
+        }
+
+        if (isset($function['input_field_names']) && is_array($function['input_field_names'])) {
+            $fs->setInputFieldNames($function['input_field_names']);
+        }
+
+        if (isset($function['input_field_ids']) && is_array($function['input_field_ids'])) {
+            $fs->setInputFieldIds($function['input_field_ids']);
+        }
+
+        if (isset($function['output_field_names']) && is_array($function['output_field_names'])) {
+            $fs->setOutputFieldNames($function['output_field_names']);
+        }
+
+        if (isset($function['output_field_ids']) && is_array($function['output_field_ids'])) {
+            $fs->setOutputFieldIds($function['output_field_ids']);
+        }
+
+        if (isset($function['params']) && is_array($function['params'])) {
+            $fs->setParams(self::buildKeyValuePairs($function['params']));
+        }
+
+        return $fs;
     }
 }

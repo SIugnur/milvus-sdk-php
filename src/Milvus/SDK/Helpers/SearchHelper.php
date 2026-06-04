@@ -21,6 +21,7 @@ class SearchHelper
         array $outputFields = [],
         string $filter = '',
         string $dbName = '',
+        ?array $searchParams = null,
     ): SearchRequest {
         $placeholderValues = [];
         foreach ($vectors as $i => $vector) {
@@ -41,9 +42,15 @@ class SearchHelper
         $pg = new PlaceholderGroup();
         $pg->setPlaceholders($placeholderValues);
 
-        $searchParams = [new KeyValuePair(['key' => 'anns_field', 'value' => $annsField])];
-        $searchParams[] = new KeyValuePair(['key' => 'topk', 'value' => (string)$topK]);
-        $searchParams[] = new KeyValuePair(['key' => 'params', 'value' => json_encode((object)$params)]);
+        $searchParamsInternal = [new KeyValuePair(['key' => 'anns_field', 'value' => $annsField])];
+        $searchParamsInternal[] = new KeyValuePair(['key' => 'topk', 'value' => (string)$topK]);
+        $searchParamsInternal[] = new KeyValuePair(['key' => 'params', 'value' => json_encode((object)$params)]);
+        if ($searchParams !== null) {
+            foreach ($searchParams as $k => $v) {
+                $searchParamsInternal[] = new KeyValuePair(['key' => (string)$k, 'value' => (string)$v]);
+            }
+        }
+        $searchParams = $searchParamsInternal;
 
         $req = new SearchRequest();
         $req->setCollectionName($collectionName);
