@@ -35,9 +35,7 @@ use Milvus\SDK\Client;
 $client = new Client([
     'host'        => 'localhost',   // Milvus server host
     'port'        => 19530,         // Milvus server port
-    'username'    => 'root',        // Optional: for authentication
-    'password'    => 'milvus',      // Optional: for authentication
-    'token'       => null,          // Optional: API token (Zilliz Cloud)
+    'token'       => null,          // Optional: authentication token (e.g., 'root:Milvus')
     'ssl'         => false,         // Enable SSL/TLS
     'database'    => 'default',     // Default database name
     'timeout'     => 30,            // Request timeout in seconds

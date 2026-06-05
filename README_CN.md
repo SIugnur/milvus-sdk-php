@@ -35,9 +35,7 @@ use Milvus\SDK\Client;
 $client = new Client([
     'host'        => 'localhost',   // Milvus 服务器地址
     'port'        => 19530,         // Milvus 服务器端口
-    'username'    => 'root',        // 可选：用户名（用于认证）
-    'password'    => 'milvus',      // 可选：密码（用于认证）
-    'token'       => null,          // 可选：API token（Zilliz Cloud）
+    'token'       => null,          // 可选：认证 token（例如，'root:Milvus'）
     'ssl'         => false,         // 启用 SSL/TLS
     'database'    => 'default',     // 默认数据库名称
     'timeout'     => 30,            // 请求超时时间（秒）

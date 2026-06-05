@@ -5,7 +5,6 @@ use Grpc\BaseStub;
 use Grpc\ChannelCredentials;
 use Google\Protobuf\Internal\Message;
 use Milvus\Proto\Common\Status;
-use Milvus\Proto\Common\KeyValuePair;
 use Milvus\Proto\Milvus\GetVersionRequest;
 use Milvus\Proto\Milvus\GetVersionResponse;
 use Milvus\Proto\Milvus\CheckHealthRequest;
@@ -156,8 +155,6 @@ class Client extends BaseStub
     private string $host;
     private int $port;
     private ?string $token;
-    private ?string $username;
-    private ?string $password;
     private bool $ssl;
     private int $timeout;
     private int $maxRetries;
@@ -169,8 +166,6 @@ class Client extends BaseStub
         $this->port = $config['port'] ?? 19530;
         $this->database = $config['database'] ?? 'default';
         $this->token = $config['token'] ?? null;
-        $this->username = $config['username'] ?? null;
-        $this->password = $config['password'] ?? null;
         $this->ssl = $config['ssl'] ?? false;
         $this->timeout = $config['timeout'] ?? 30;
         $this->maxRetries = $config['max_retries'] ?? 3;
@@ -193,10 +188,9 @@ class Client extends BaseStub
     public function call(string $method, Message $request, string $responseClass): mixed
     {
         $metadata = [];
-        if ($this->token) {
-            $metadata['authorization'] = ['Bearer ' . $this->token];
-        } elseif ($this->username && $this->password) {
-            $metadata['authorization'] = ['Basic ' . base64_encode("{$this->username}:{$this->password}")];
+        $token = trim($this->token ?? '');
+        if ($token) {
+            $metadata['authorization'] = [base64_encode($token)];
         }
 
         $lastException = null;
