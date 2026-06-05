@@ -567,7 +567,7 @@ class Client extends BaseStub
     /** Search with simple parameters. For advanced options, use searchRaw(). */
     public function search(
         string $collectionName,
-        array $vectors,
+        array $data,
         string $annsField,
         int $topK = 100,
         array $params = [],
@@ -577,7 +577,7 @@ class Client extends BaseStub
         ?array $searchParams = null,
     ): SearchResult {
         $req = SearchHelper::buildSearchRequest(
-            $collectionName, $vectors, $annsField, $topK,
+            $collectionName, $data, $annsField, $topK,
             $params, $outputFields, $filter, $dbName ?? '', $searchParams
         );
         return new SearchResult($this->call('Search', $req, SearchResults::class));

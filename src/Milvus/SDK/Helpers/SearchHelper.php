@@ -12,7 +12,7 @@ class SearchHelper
 {
     public static function buildSearchRequest(
         string $collectionName,
-        array $vectors,
+        array $data,
         string $annsField,
         int $topK = 100,
         array $params = [],
@@ -22,15 +22,15 @@ class SearchHelper
         ?array $searchParams = null,
     ): SearchRequest {
         $placeholderValues = [];
-        foreach ($vectors as $i => $vector) {
+        foreach ($data as $i => $value) {
             $pv = new PlaceholderValue();
             $pv->setTag('$' . $i);
-            if (is_array($vector) && isset($vector[0]) && is_numeric($vector[0])) {
+            if (is_array($value) && isset($value[0]) && is_numeric($value[0])) {
                 $pv->setType(PlaceholderType::FloatVector);
-                $pv->setValues([pack('f*', ...$vector)]);
-            } elseif (is_string($vector)) {
+                $pv->setValues([pack('f*', ...$value)]);
+            } elseif (is_string($value)) {
                 $pv->setType(PlaceholderType::VarChar);
-                $pv->setValues([$vector]);
+                $pv->setValues([$value]);
             } else {
                 throw new ParamException('Unsupported vector type');
             }
@@ -55,7 +55,7 @@ class SearchHelper
         $req->setDslType(\Milvus\Proto\Common\DslType::Dsl);
         $req->setPlaceholderGroup($pg->serializeToString());
         $req->setSearchParams($searchParams);
-        $req->setNq(count($vectors));
+        $req->setNq(count($data));
 
         if ($dbName) {
             $req->setDbName($dbName);
