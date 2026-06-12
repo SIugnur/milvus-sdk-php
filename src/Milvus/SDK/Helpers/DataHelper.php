@@ -8,6 +8,7 @@ use Milvus\Proto\Schema\IntArray;
 use Milvus\Proto\Schema\StringArray;
 use Milvus\Proto\Schema\BoolArray;
 use Milvus\Proto\Schema\DoubleArray;
+use Milvus\Proto\Schema\JSONArray;
 use Milvus\Proto\Schema\ScalarField;
 use Milvus\Proto\Schema\VectorField;
 use Milvus\Proto\Schema\DataType;
@@ -48,6 +49,15 @@ class DataHelper
                 $arr = new BoolArray();
                 $arr->setData($values);
                 $fd->setScalars((new ScalarField())->setBoolData($arr));
+                break;
+            case DataType::JSON:
+                $jsonStrings = [];
+                foreach ($values as $v) {
+                    $jsonStrings[] = is_array($v) ? json_encode($v) : (string) $v;
+                }
+                $arr = new JSONArray();
+                $arr->setData($jsonStrings);
+                $fd->setScalars((new ScalarField())->setJsonData($arr));
                 break;
             case DataType::VarChar:
             case DataType::String:
@@ -123,6 +133,11 @@ class DataHelper
                 }
             }
             $fields[] = self::buildFieldData($fieldName, $values, $dataType);
+
+            // Mark the $meta dynamic field
+            if ($fieldName === '$meta') {
+                $fields[count($fields) - 1]->setIsDynamic(true);
+            }
         }
 
         return $fields;
@@ -143,6 +158,7 @@ class DataHelper
                 return false;
             case DataType::VarChar:
             case DataType::String:
+            case DataType::JSON:
                 return '';
             case DataType::FloatVector:
                 return [];
@@ -171,6 +187,11 @@ class DataHelper
             $values = [];
             $dataType = null;
 
+            // $meta is the dynamic field placeholder, always JSON type
+            if ($fieldName === '$meta') {
+                $dataType = DataType::JSON;
+            }
+
             foreach ($records as $row) {
                 $value = $row[$fieldName] ?? null;
                 $values[] = $value;
@@ -181,9 +202,38 @@ class DataHelper
             }
 
             $fields[] = self::buildFieldData($fieldName, $values, $dataType);
+
+            // Mark the $meta dynamic field
+            if ($fieldName === '$meta') {
+                $fields[count($fields) - 1]->setIsDynamic(true);
+            }
         }
 
         return $fields;
+    }
+
+    /**
+     * Merge dynamic fields into $meta key for each record.
+     * Fields already in $schemaFieldNames are kept as-is; others go into $meta as an associative array.
+     */
+    public static function mergeDynamicFields(array $records, array $schemaFieldNames): array
+    {
+        if (empty($schemaFieldNames)) {
+            return $records;
+        }
+        foreach ($records as &$row) {
+            $dynamic = [];
+            foreach ($row as $k => $v) {
+                if (!in_array($k, $schemaFieldNames, true)) {
+                    $dynamic[$k] = $v;
+                    unset($row[$k]);
+                }
+            }
+            if (!empty($dynamic)) {
+                $row['$meta'] = $dynamic;
+            }
+        }
+        return $records;
     }
 
     private static function inferDataType($value): int
@@ -238,6 +288,13 @@ class DataHelper
             }
             if ($scalars->getBytesData() !== null) {
                 return iterator_to_array($scalars->getBytesData()->getData());
+            }
+            if ($scalars->getJsonData() !== null) {
+                $jsonStrings = iterator_to_array($scalars->getJsonData()->getData());
+                return array_map(function ($s) {
+                    $decoded = json_decode($s, true);
+                    return json_last_error() === JSON_ERROR_NONE ? $decoded : $s;
+                }, $jsonStrings);
             }
             return [];
         }
@@ -300,8 +357,17 @@ class DataHelper
         foreach ($fieldsData as $field) {
             $fieldName = $field->getFieldName();
             $values = self::extractFieldValues($field);
+            $isDynamic = $field->getIsDynamic();
+
             for ($i = 0; $i < $rowCount && $i < count($values); $i++) {
-                $result[$i][$fieldName] = $values[$i];
+                if ($isDynamic && $fieldName === '$meta' && is_array($values[$i])) {
+                    // Flatten dynamic $meta fields into the top-level row
+                    foreach ($values[$i] as $dk => $dv) {
+                        $result[$i][$dk] = $dv;
+                    }
+                } else {
+                    $result[$i][$fieldName] = $values[$i];
+                }
             }
             // Pad missing rows for this field with null
             for ($i = count($values); $i < $rowCount; $i++) {

@@ -25,6 +25,7 @@ class ClientTest extends TestCase
             'host' => $host,
             'port' => $port,
             'timeout' => 30,
+            'token' => 'root:Milvus',
         ]);
     }
 

@@ -20,6 +20,7 @@ class SimpleExampleTest extends TestCase
             'host' => $host,
             'port' => $port,
             'timeout' => 30,
+            'token' => 'root:Milvus',
         ]);
     }
 
@@ -308,6 +309,86 @@ class SimpleExampleTest extends TestCase
         $this->assertArrayHasKey('token', $tokens[0][0]);
         $this->assertArrayHasKey('start_offset', $tokens[0][0]);
 
+        self::$client->dropCollection($collectionName, $dbName);
+        $this->assertFalse(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->dropDatabase($dbName);
+        $dbs = self::$client->listDatabases();
+        $this->assertNotContains($dbName, $dbs);
+    }
+
+    public function testDynamicFieldInsertAndQuery()
+    {
+        $dbName = 'test_dynamic_db_' . uniqid();
+        $collectionName = 'test_dynamic_col_' . uniqid();
+
+        self::$client->createDatabase($dbName);
+        $dbs = self::$client->listDatabases();
+        $this->assertContains($dbName, $dbs);
+
+        self::$client->createCollection(
+            name: $collectionName,
+            fields: [
+                ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+                ['name' => 'vector', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 4]],
+                ['name' => 'title', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 256]],
+            ],
+            description: 'Collection with dynamic fields enabled',
+            enableDynamicField: true,
+            dbName: $dbName,
+        );
+        $this->assertTrue(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->createIndex($collectionName, 'vector', $dbName, ['index_type' => 'FLAT']);
+        self::$client->loadCollection($collectionName, $dbName);
+
+        $insertResult = self::$client->insert($collectionName, [
+            [
+                'vector' => [0.1, 0.2, 0.3, 0.4],
+                'title' => 'doc1',
+                'dynamic_int' => 100,
+                'dynamic_string' => 'dynamic value 1',
+                'dynamic_float' => 3.14,
+            ],
+            [
+                'vector' => [0.5, 0.6, 0.7, 0.8],
+                'title' => 'doc2',
+                'dynamic_int' => 200,
+                'dynamic_string' => 'dynamic value 2',
+                'dynamic_bool' => true,
+            ],
+            [
+                'vector' => [0.9, 1.0, 1.1, 1.2],
+                'title' => 'doc3',
+                'dynamic_int' => 300,
+            ],
+        ], $dbName);
+        $this->assertNotNull($insertResult);
+        $this->assertNotNull($insertResult->getInsertIds());
+
+        self::$client->flush($collectionName, $dbName);
+
+        $queryResults = self::$client->query($collectionName, 'title == "doc2"', ['id', 'title', 'dynamic_int', 'dynamic_string', 'dynamic_bool'], $dbName);
+        $this->assertNotNull($queryResults);
+        $rows = $queryResults->toArray();
+        $this->assertNotEmpty($rows);
+        $this->assertArrayHasKey('id', $rows[0]);
+        $this->assertArrayHasKey('title', $rows[0]);
+        $this->assertArrayHasKey('dynamic_int', $rows[0]);
+        $this->assertArrayHasKey('dynamic_string', $rows[0]);
+        $this->assertArrayHasKey('dynamic_bool', $rows[0]);
+        $this->assertEquals('doc2', $rows[0]['title']);
+        $this->assertEquals(200, $rows[0]['dynamic_int']);
+        $this->assertEquals('dynamic value 2', $rows[0]['dynamic_string']);
+        $this->assertEquals(true, $rows[0]['dynamic_bool']);
+
+        $queryResults = self::$client->query($collectionName, 'dynamic_int > 150', ['id', 'title', 'dynamic_int'], $dbName);
+        $this->assertNotNull($queryResults);
+        $rows = $queryResults->toArray();
+        $this->assertNotEmpty($rows);
+        $this->assertGreaterThanOrEqual(2, count($rows));
+
+        self::$client->releaseCollection($collectionName, $dbName);
         self::$client->dropCollection($collectionName, $dbName);
         $this->assertFalse(self::$client->hasCollection($collectionName, $dbName));
 

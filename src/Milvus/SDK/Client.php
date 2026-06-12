@@ -507,6 +507,7 @@ class Client extends BaseStub
         int|string $schemaTimestamp = 0,
         string $namespace = ''
     ): MutationResult {
+        $records = DataHelper::mergeDynamicFields($records, $this->getSchemaFieldNames($collectionName, $dbName));
         $fieldsData = DataHelper::convertRecordsToFieldData($records);
         $numRows = $this->inferNumRows($fieldsData);
         
@@ -535,6 +536,7 @@ class Client extends BaseStub
         string $namespace = '',
         array $fieldOps = []
     ): MutationResult {
+        $records = DataHelper::mergeDynamicFields($records, $this->getSchemaFieldNames($collectionName, $dbName));
         $fieldsData = DataHelper::convertRecordsToFieldData($records);
         $numRows = $this->inferNumRows($fieldsData);
         
@@ -552,6 +554,26 @@ class Client extends BaseStub
         if (!empty($fieldOps)) $req->setFieldOps($fieldOps);
         
         return new MutationResult($this->call('Upsert', $req, ProtoMutationResult::class));
+    }
+
+    private function getSchemaFieldNames(string $collectionName, ?string $dbName): array
+    {
+        try {
+            $collectionInfo = $this->describeCollection($collectionName, $dbName);
+            $schema = $collectionInfo->getSchema();
+            if ($schema === null || !$schema->getEnableDynamicField()) {
+                return [];
+            }
+            $names = [];
+            foreach ($schema->getFields() ?? [] as $field) {
+                if ($field !== null) {
+                    $names[] = $field->getName();
+                }
+            }
+            return $names;
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     public function delete(string $collectionName, string $expr, ?string $dbName = null, string $partitionName = ''): MutationResult
