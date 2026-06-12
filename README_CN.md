@@ -2,7 +2,7 @@
 
 [Milvus](https://github.com/milvus-io/milvus) 向量数据库的 PHP SDK。提供 gRPC 客户端，支持向量相似度搜索、元数据过滤以及完整的集合/索引/用户管理功能。
 
-**包名**: `siugnur/milvus-sdk-php` | **PHP 版本**: ^8.0 | **许可证**: Apache-2.0
+**包名**: `siugnur/milvus-sdk-php` | **PHP 版本**: ^8.0 | **许可证**: MIT
 
 ## 安装
 
@@ -407,4 +407,4 @@ MILVUS_HOST=192.168.1.100 MILVUS_PORT=19530 ./vendor/bin/phpunit
 
 ## 许可证
 
-Apache-2.0
+MIT

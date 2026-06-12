@@ -2,7 +2,7 @@
 
 PHP SDK for [Milvus](https://github.com/milvus-io/milvus) vector database. Provides a gRPC client for vector similarity search, metadata filtering, and full collection/index/user management.
 
-**Package**: `siugnur/milvus-sdk-php` | **PHP**: ^8.0 | **License**: Apache-2.0
+**Package**: `siugnur/milvus-sdk-php` | **PHP**: ^8.0 | **License**: MIT
 
 ## Installation
 
@@ -407,4 +407,4 @@ MILVUS_HOST=192.168.1.100 MILVUS_PORT=19530 ./vendor/bin/phpunit
 
 ## License
 
-Apache-2.0
+MIT
