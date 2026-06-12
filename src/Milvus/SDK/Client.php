@@ -43,6 +43,7 @@ use Milvus\Proto\Milvus\CreateIndexRequest;
 use Milvus\Proto\Milvus\DescribeIndexRequest;
 use Milvus\Proto\Milvus\DescribeIndexResponse;
 use Milvus\Proto\Milvus\DropIndexRequest;
+use Milvus\Proto\Milvus\AlterIndexRequest;
 use Milvus\Proto\Milvus\GetIndexStateRequest;
 use Milvus\Proto\Milvus\GetIndexStateResponse;
 use Milvus\Proto\Milvus\GetIndexBuildProgressRequest;
@@ -445,18 +446,22 @@ class Client extends BaseStub
             'index_type' => $params['index_type'] ?? 'FLAT',
             'metric_type' => $params['metric_type'] ?? 'L2',
         ];
-        if (isset($params['index_name'])) {
-            $indexParams['index_name'] = $params['index_name'];
-        }
+        $indexName = $params['index_name'] ?? '';
         unset($params['index_type'], $params['metric_type'], $params['index_name']);
-        
+
         $kvPairs = Helper::toKeyValuePairs(array_merge($indexParams, $params));
 
-        $this->call('CreateIndex', (new CreateIndexRequest())
+        $req = (new CreateIndexRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldName($fieldName)
-            ->setExtraParams($kvPairs), Status::class);
+            ->setExtraParams($kvPairs);
+
+        if ($indexName) {
+            $req->setIndexName($indexName);
+        }
+
+        $this->call('CreateIndex', $req, Status::class);
     }
 
     public function describeIndex(string $collectionName, string $fieldName = '', string $indexName = '', ?string $dbName = null): IndexInfo
@@ -473,6 +478,34 @@ class Client extends BaseStub
         if ($fieldName) $req->setFieldName($fieldName);
         if ($indexName) $req->setIndexName($indexName);
         $this->call('DropIndex', $req, Status::class);
+    }
+
+    /**
+     * Modify index properties after creation.
+     *
+     * @param array<string, string> $extraParams  key-value pairs to add/update (e.g. ['mmap.enabled' => 'true'])
+     * @param string[]              $deleteKeys   keys to remove from index params
+     */
+    public function alterIndex(
+        string $collectionName,
+        string $indexName,
+        ?string $dbName = null,
+        array $extraParams = [],
+        array $deleteKeys = [],
+    ): void {
+        $req = (new AlterIndexRequest())
+            ->setDbName($dbName ?? $this->database)
+            ->setCollectionName($collectionName)
+            ->setIndexName($indexName);
+
+        if ($extraParams) {
+            $req->setExtraParams(Helper::toKeyValuePairs($extraParams));
+        }
+        if ($deleteKeys) {
+            $req->setDeleteKeys($deleteKeys);
+        }
+
+        $this->call('AlterIndex', $req, Status::class);
     }
 
     public function getIndexState(string $collectionName, string $fieldName = '', ?string $dbName = null): IndexStateInfo

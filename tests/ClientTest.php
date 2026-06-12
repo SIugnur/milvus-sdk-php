@@ -584,10 +584,18 @@ class ClientTest extends TestCase
         );
         self::$createdCollections[] = $collectionName;
 
-        self::$client->createIndex($collectionName, 'vector', null, ['index_type' => 'FLAT']);
+        self::$client->createIndex($collectionName, 'vector', null, [
+            'index_type' => 'FLAT',
+            'index_name' => 'test_idx',
+        ]);
 
         $info = self::$client->describeIndex($collectionName, 'vector');
         $this->assertNotNull($info);
+
+        // Alter index: enable mmap
+        self::$client->alterIndex($collectionName, 'test_idx', null, ['mmap.enabled' => 'True']);
+        $alteredInfo = self::$client->describeIndex($collectionName, '', 'test_idx');
+        $this->assertNotNull($alteredInfo);
 
         $state = self::$client->getIndexState($collectionName, 'vector');
         $this->assertNotNull($state);

@@ -4,7 +4,6 @@ namespace Milvus\SDK\Tests;
 use Milvus\Proto\Schema\FunctionType;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
-use Milvus\SDK\Helpers\DataHelper;
 use PHPUnit\Framework\TestCase;
 
 class SimpleExampleTest extends TestCase
