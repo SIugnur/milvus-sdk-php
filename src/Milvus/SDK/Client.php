@@ -542,13 +542,12 @@ class Client extends BaseStub
     ): MutationResult {
         $records = DataHelper::mergeDynamicFields($records, $this->getSchemaFieldNames($collectionName, $dbName));
         $fieldsData = DataHelper::convertRecordsToFieldData($records);
-        $numRows = $this->inferNumRows($fieldsData);
         
         $req = (new InsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows($numRows);
+            ->setNumRows(count($records));
         
         if ($partitionName) $req->setPartitionName($partitionName);
         if (!empty($hashKeys)) $req->setHashKeys($hashKeys);
@@ -571,13 +570,12 @@ class Client extends BaseStub
     ): MutationResult {
         $records = DataHelper::mergeDynamicFields($records, $this->getSchemaFieldNames($collectionName, $dbName));
         $fieldsData = DataHelper::convertRecordsToFieldData($records);
-        $numRows = $this->inferNumRows($fieldsData);
         
         $req = (new UpsertRequest())
             ->setDbName($dbName ?? $this->database)
             ->setCollectionName($collectionName)
             ->setFieldsData($fieldsData)
-            ->setNumRows($numRows);
+            ->setNumRows(count($records));
         
         if ($partitionName) $req->setPartitionName($partitionName);
         if (!empty($hashKeys)) $req->setHashKeys($hashKeys);
@@ -1003,29 +1001,5 @@ class Client extends BaseStub
     {
         return $this->call('GetMetrics', (new GetMetricsRequest())->setRequest($requestStr), GetMetricsResponse::class)
             ->getResponse();
-    }
-
-    // ========== Internal Helpers ==========
-
-    private function inferNumRows(array $fieldsData): int
-    {
-        if (empty($fieldsData)) return 0;
-        $first = $fieldsData[0];
-        if ($first->getVectors()) {
-            $vectors = $first->getVectors();
-            return (int)(count($vectors->getFloatVector()->getData()) / max($vectors->getDim(), 1));
-        }
-        if ($first->getScalars()) {
-            $s = $first->getScalars();
-            foreach ([
-                $s->getLongData()?->getData(),
-                $s->getIntData()?->getData(),
-                $s->getFloatData()?->getData(),
-                $s->getStringData()?->getData(),
-            ] as $data) {
-                if ($data !== null) return count($data);
-            }
-        }
-        return 0;
     }
 }
