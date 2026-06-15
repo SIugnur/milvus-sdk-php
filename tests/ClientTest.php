@@ -1,6 +1,7 @@
 <?php
 namespace Milvus\SDK\Tests;
 
+use Milvus\Proto\Schema\FieldData;
 use Milvus\SDK\Client;
 use Milvus\SDK\Constants\DataType;
 use Milvus\SDK\Constants\LoadState;
@@ -604,5 +605,56 @@ class ClientTest extends TestCase
         $this->assertNotNull($progress);
 
         self::$client->dropIndex($collectionName, 'vector');
+    }
+
+    public function testSparseFloatVectorRoundtrip()
+    {
+        // Build sparse vectors: each is [dim => value]
+        $original = [
+            [0 => 0.5, 2 => 1.5, 5 => 3.0],       // 3 non-zero dims
+            [1 => 2.0, 3 => 4.5],                   // 2 non-zero dims
+            [0 => 1.0, 1 => 2.0, 2 => 3.0, 3 => 4.0], // 4 non-zero dims
+        ];
+
+        // Encode using the same path as buildFieldData
+        $fd = DataHelper::buildFieldData('sparse_vec', $original, DataType::SparseFloatVector);
+        $this->assertInstanceOf(FieldData::class, $fd);
+        $this->assertEquals('sparse_vec', $fd->getFieldName());
+        $this->assertEquals(DataType::SparseFloatVector, $fd->getType());
+
+        // Decode using the same path as extractFieldValues
+        $decoded = DataHelper::extractFieldValues($fd);
+        $this->assertIsArray($decoded);
+        $this->assertCount(count($original), $decoded);
+
+        foreach ($original as $i => $expected) {
+            $this->assertEquals($expected, $decoded[$i], "Sparse vector at index $i does not match");
+        }
+    }
+
+    public function testSparseFloatVectorWithSingleElement()
+    {
+        // Edge case: only one non-zero dim
+        $original = [
+            [7 => 3.14],
+        ];
+
+        $fd = DataHelper::buildFieldData('sparse_vec', $original, DataType::SparseFloatVector);
+        $decoded = DataHelper::extractFieldValues($fd);
+
+        $this->assertCount(1, $decoded);
+        $this->assertEqualsWithDelta(3.14, $decoded[0][7], 1e-6);
+    }
+
+    public function testSparseFloatVectorWithEmpty()
+    {
+        // Edge case: empty array
+        $original = [];
+
+        $fd = DataHelper::buildFieldData('sparse_vec', $original, DataType::SparseFloatVector);
+        $decoded = DataHelper::extractFieldValues($fd);
+
+        $this->assertIsArray($decoded);
+        $this->assertCount(0, $decoded);
     }
 }

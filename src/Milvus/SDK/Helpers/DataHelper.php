@@ -403,12 +403,12 @@ class DataHelper
         }
 
         foreach ($contents as $content) {
-            // Sparse vector is serialized as: [num_pairs][dim1:value1][dim2:value2]...
-            // Using unpack with proper format
+            // Sparse vector is serialized as concatenated (uint32 index, float32 value) pairs,
+            // The number of pairs is derived from the byte length.
             $packed = $content;
-            $numPairs = unpack('V', substr($packed, 0, 4))[1];
             $vec = [];
-            $offset = 4;
+            $offset = 0;
+            $numPairs = intdiv(strlen($packed), 8);
             for ($j = 0; $j < $numPairs; $j++) {
                 if ($offset + 8 > strlen($packed)) {
                     break;
