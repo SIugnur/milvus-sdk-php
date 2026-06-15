@@ -40,15 +40,15 @@ class SearchHelper
         $pg = new PlaceholderGroup();
         $pg->setPlaceholders($placeholderValues);
 
-        $searchParamsInternal = Helper::toKeyValuePairs([
+        $mergedParams = [
             'anns_field' => $annsField,
             'topk' => (string)$topK,
             'params' => json_encode((object)$params),
-        ]);
+        ];
         if ($searchParams !== null) {
-            $searchParamsInternal = array_merge($searchParamsInternal, Helper::toKeyValuePairs($searchParams));
+            $mergedParams = array_merge($mergedParams, $searchParams);
         }
-        $searchParams = $searchParamsInternal;
+        $searchParams = Helper::toKeyValuePairs($mergedParams);
 
         $req = new SearchRequest();
         $req->setCollectionName($collectionName);

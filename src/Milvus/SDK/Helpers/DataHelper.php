@@ -107,6 +107,8 @@ class DataHelper
             case DataType::BinaryVector:
                 $vecField = new \Milvus\Proto\Schema\VectorField();
                 $vecField->setBinaryVector(implode('', $values));
+                $dim = !empty($values) ? strlen($values[0]) * 8 : 0;
+                $vecField->setDim($dim);
                 $fd->setVectors($vecField);
                 break;
             default:
