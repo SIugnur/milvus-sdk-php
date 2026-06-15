@@ -122,6 +122,47 @@ class ClientTest extends TestCase
         $this->assertEquals('default', $info->getName());
     }
 
+    public function testCreateDatabaseWithProperties()
+    {
+        $dbName = 'test_db_props_' . uniqid();
+        $props = ['database.replica.number' => '1'];
+
+        self::$client->createDatabase($dbName, $props);
+
+        $info = self::$client->describeDatabase($dbName);
+        $this->assertEquals($dbName, $info->getName());
+        $this->assertSame($props, $info->getProperties());
+
+        self::$client->dropDatabase($dbName);
+    }
+
+    public function testAlterDatabaseWithProperties()
+    {
+        $dbName = 'test_alter_db_' . uniqid();
+
+        self::$client->createDatabase($dbName);
+
+        $info = self::$client->describeDatabase($dbName);
+        $this->assertSame([], $info->getProperties());
+
+        $props = ['database.replica.number' => '3'];
+        self::$client->alterDatabase($dbName, $props);
+
+        $info = self::$client->describeDatabase($dbName);
+        $this->assertEquals($dbName, $info->getName());
+        $this->assertSame($props, $info->getProperties());
+
+        self::$client->dropDatabase($dbName);
+    }
+
+    public function testAlterDatabaseOnDefaultDb()
+    {
+        // Should not throw when altering the default database with properties
+        self::$client->alterDatabase('default', ['database.replica.number' => '1']);
+
+        $this->assertTrue(true);
+    }
+
     public function testShowCollections()
     {
         $collections = self::$client->showCollections();

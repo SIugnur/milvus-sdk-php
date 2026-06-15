@@ -250,9 +250,16 @@ class Client extends BaseStub
         return $names instanceof \Google\Protobuf\Internal\RepeatedField ? iterator_to_array($names) : (array)$names;
     }
 
-    public function createDatabase(string $name): void
+    public function createDatabase(string $name, array $properties = []): void
     {
-        $this->call('CreateDatabase', (new CreateDatabaseRequest())->setDbName($name), Status::class);
+        $req = (new CreateDatabaseRequest())
+            ->setDbName($name);
+
+        if ($properties) {
+            $req->setProperties(Helper::toKeyValuePairs($properties));
+        }
+
+        $this->call('CreateDatabase', $req, Status::class);
     }
 
     public function dropDatabase(string $name): void
@@ -267,9 +274,16 @@ class Client extends BaseStub
         );
     }
 
-    public function alterDatabase(string $name): void
+    public function alterDatabase(string $name, array $properties = []): void
     {
-        $this->call('AlterDatabase', (new AlterDatabaseRequest())->setDbName($name), Status::class);
+        $req = (new AlterDatabaseRequest())
+            ->setDbName($name);
+
+        if ($properties) {
+            $req->setProperties(Helper::toKeyValuePairs($properties));
+        }
+
+        $this->call('AlterDatabase', $req, Status::class);
     }
 
     // ========== Collection ==========
