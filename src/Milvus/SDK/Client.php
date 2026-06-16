@@ -666,7 +666,7 @@ class Client extends BaseStub
     ): SearchResult {
         $requests = [];
         foreach ($searchConfigs as $config) {
-            $vectors = $config['vectors'] ?? [];
+            $vectors = $config['data'] ?? [];
             $annsField = $config['annsField'] ?? '';
             $topK = $config['topK'] ?? 100;
             $params = $config['params'] ?? [];

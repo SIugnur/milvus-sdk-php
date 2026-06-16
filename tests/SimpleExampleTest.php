@@ -213,14 +213,14 @@ class SimpleExampleTest extends TestCase
             $collectionName,
             [
                 [
-                    'vectors' => [[0.2, 0.3, 0.4, 0.5]],
+                    'data' => [[0.2, 0.3, 0.4, 0.5]],
                     'annsField' => 'vector',
                     'topK' => 3,
                     'params' => ['nprobe' => 10],
                     'outputFields' => ['title']
                 ],
                 [
-                    'vectors' => ['什么是自定义分析器？'],
+                    'data' => ['什么是自定义分析器？'],
                     'annsField' => 'title_sparse',
                     'topK' => 3,
                     'searchParams' => ['analyzer_name' => 'Mandarin'],
