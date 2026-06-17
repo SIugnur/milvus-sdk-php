@@ -250,6 +250,13 @@ class DataHelper
             return DataType::Bool;
         }
         if (is_array($value)) {
+            // Check if it's a sparse vector (associative array with non-sequential keys)
+            if (!empty($value)) {
+                $keys = array_keys($value);
+                if ($keys !== range(0, count($value) - 1)) {
+                    return DataType::SparseFloatVector;
+                }
+            }
             foreach ($value as $v) {
                 if (!is_float($v) && !is_int($v)) {
                     return DataType::VarChar;

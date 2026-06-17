@@ -496,6 +496,76 @@ class SimpleExampleTest extends TestCase
         self::$client->dropDatabase($dbName);
     }
 
+    public function testSearchWithSparseVector()
+    {
+        $dbName = 'test_sparse_db_' . uniqid();
+        $collectionName = 'test_sparse_col_' . uniqid();
+
+        self::$client->createDatabase($dbName);
+        $dbs = self::$client->listDatabases();
+        $this->assertContains($dbName, $dbs);
+
+        self::$client->createCollection(
+            $collectionName,
+            [
+                ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+                ['name' => 'sparse', 'data_type' => DataType::SparseFloatVector],
+                ['name' => 'title', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 256]],
+            ],
+            dbName: $dbName
+        );
+        $this->assertTrue(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->createIndex($collectionName, 'sparse', $dbName, [
+            'index_type' => 'SPARSE_INVERTED_INDEX',
+            'metric_type' => 'IP',
+            'params' => json_encode([
+                'inverted_index_algo' => 'DAAT_MAXSCORE',
+            ]),
+        ]);
+        self::$client->loadCollection($collectionName, $dbName);
+
+        $insertResult = self::$client->insert($collectionName, [
+            ['sparse' => [0 => 0.5, 2 => 1.5, 5 => 3.0], 'title' => 'doc1'],
+            ['sparse' => [1 => 2.0, 3 => 4.5], 'title' => 'doc2'],
+            ['sparse' => [0 => 1.0, 1 => 2.0, 2 => 3.0, 3 => 4.0], 'title' => 'doc3'],
+        ], $dbName);
+        $this->assertNotNull($insertResult);
+
+        self::$client->flush($collectionName, $dbName);
+
+        // Search with sparse vector — placeholderType is auto-detected as SparseFloatVector
+        $searchResult = self::$client->search(
+            $collectionName,
+            [[0 => 0.5, 2 => 1.5, 5 => 3.0]],
+            'sparse',
+            3,
+            [],
+            ['title'],
+            '',
+            $dbName,
+        );
+        echo json_encode($searchResult->toArray());
+        $this->assertNotNull($searchResult);
+        $this->assertGreaterThan(0, $searchResult->getNumQueries());
+        $this->assertGreaterThan(0, $searchResult->getTopK());
+        $this->assertNotEmpty($searchResult->getIds());
+        $this->assertNotEmpty($searchResult->getScores());
+
+        $rows = $searchResult->toArray();
+        $this->assertNotEmpty($rows);
+        $this->assertArrayHasKey('score', $rows[0]);
+        $this->assertArrayHasKey('title', $rows[0]);
+
+        self::$client->releaseCollection($collectionName, $dbName);
+        self::$client->dropCollection($collectionName, $dbName);
+        $this->assertFalse(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->dropDatabase($dbName);
+        $dbs = self::$client->listDatabases();
+        $this->assertNotContains($dbName, $dbs);
+    }
+
     public function test_deleteAll()
     {
         $listDatabases = self::$client->listDatabases();
