@@ -654,7 +654,7 @@ class Client extends BaseStub
     ): SearchResult {
         $req = SearchHelper::buildSearchRequest(
             $collectionName, $data, $annsField, $topK,
-            $params, $outputFields, $filter, $dbName ?? '', $searchParams,
+            $params, $outputFields, $filter, $dbName ?? $this->database, $searchParams,
             $placeholderType, $offset, $groupByField, $strictGroupSize,
             $groupSize, $ignoreGrowing, $hints, $roundDecimal, $exprValues,
         );
@@ -696,7 +696,7 @@ class Client extends BaseStub
 
             $requests[] = SearchHelper::buildSearchRequest(
                 $collectionName, $vectors, $annsField, $topK,
-                $params, $outputFlds, $filter, $dbName ?? '', $searchParams,
+                $params, $outputFlds, $filter, $dbName ?? $this->database, $searchParams,
                 $vectorType, $offset, $groupByField, $strictGroupSize,
                 $groupSize, $ignoreGrowing, $hints, $roundDecimal, $exprValues,
             );
@@ -706,8 +706,8 @@ class Client extends BaseStub
             ->setCollectionName($collectionName)
             ->setRequests($requests);
 
-        if ($dbName) {
-            $req->setDbName($dbName);
+        if ($dbName ?? $this->database) {
+            $req->setDbName($dbName ?? $this->database);
         }
         if ($rankParams) {
             $req->setRankParams(Helper::toKeyValuePairs($rankParams));
