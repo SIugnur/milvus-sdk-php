@@ -223,6 +223,7 @@ class SimpleExampleTest extends TestCase
                     'data' => ['什么是自定义分析器？'],
                     'annsField' => 'title_sparse',
                     'topK' => 3,
+                    'placeholderType' => \Milvus\Proto\Common\PlaceholderType::VarChar,
                     'searchParams' => ['analyzer_name' => 'Mandarin'],
                     'outputFields' => ['title']
                 ]
@@ -394,6 +395,105 @@ class SimpleExampleTest extends TestCase
         self::$client->dropDatabase($dbName);
         $dbs = self::$client->listDatabases();
         $this->assertNotContains($dbName, $dbs);
+    }
+
+    public function testSearchWithOffset()
+    {
+        $dbName = 'test_off_db_' . uniqid();
+        $collectionName = 'test_off_col_' . uniqid();
+
+        self::$client->createDatabase($dbName);
+        self::$client->createCollection(
+            name: $collectionName,
+            fields: [
+                ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+                ['name' => 'vector', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 4]],
+                ['name' => 'title', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 256]],
+            ],
+            dbName: $dbName
+        );
+        $this->assertTrue(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->createIndex($collectionName, 'vector', $dbName, ['index_type' => 'FLAT']);
+        self::$client->loadCollection($collectionName, $dbName);
+
+        self::$client->insert($collectionName, [
+            ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
+            ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
+            ['vector' => [0.9, 1.0, 1.1, 1.2], 'title' => 'doc3'],
+        ], $dbName);
+        self::$client->flush($collectionName, $dbName);
+
+        // Search without offset — should get all 3 results
+        $resultAll = self::$client->search(
+            $collectionName, [[0.1, 0.2, 0.3, 0.4]], 'vector',
+            5, ['nprobe' => 10], ['title'], '', $dbName
+        );
+        $this->assertCount(3, $resultAll->toArray());
+
+        // Search with offset=1 — should skip the top result
+        $resultOffset = self::$client->search(
+            $collectionName, [[0.1, 0.2, 0.3, 0.4]], 'vector',
+            5, ['nprobe' => 10], ['title'], '', $dbName,
+            null, null, 1 // offset
+        );
+        $rows = $resultOffset->toArray();
+        $this->assertCount(2, $rows);
+
+        self::$client->releaseCollection($collectionName, $dbName);
+        self::$client->dropCollection($collectionName, $dbName);
+        self::$client->dropDatabase($dbName);
+    }
+
+    public function testSearchWithRoundDecimal()
+    {
+        $dbName = 'test_rd_db_' . uniqid();
+        $collectionName = 'test_rd_col_' . uniqid();
+
+        self::$client->createDatabase($dbName);
+        self::$client->createCollection(
+            name: $collectionName,
+            fields: [
+                ['name' => 'id', 'data_type' => DataType::Int64, 'is_primary_key' => true, 'autoID' => true],
+                ['name' => 'vector', 'data_type' => DataType::FloatVector, 'type_params' => ['dim' => 4]],
+                ['name' => 'title', 'data_type' => DataType::VarChar, 'type_params' => ['max_length' => 256]],
+            ],
+            dbName: $dbName
+        );
+        $this->assertTrue(self::$client->hasCollection($collectionName, $dbName));
+
+        self::$client->createIndex($collectionName, 'vector', $dbName, ['index_type' => 'FLAT']);
+        self::$client->loadCollection($collectionName, $dbName);
+
+        self::$client->insert($collectionName, [
+            ['vector' => [0.1, 0.2, 0.3, 0.4], 'title' => 'doc1'],
+            ['vector' => [0.5, 0.6, 0.7, 0.8], 'title' => 'doc2'],
+            ['vector' => [0.9, 1.0, 1.1, 1.2], 'title' => 'doc3'],
+        ], $dbName);
+        self::$client->flush($collectionName, $dbName);
+
+        // Search with roundDecimal=1 — scores should be reasonable
+        $result = self::$client->search(
+            $collectionName, [[0.1, 0.2, 0.3, 0.4]], 'vector',
+            5, ['nprobe' => 10], ['title'], '', $dbName,
+            null, null, 0, null, null, null, false, null, 1 // roundDecimal=1
+        );
+        $rows = $result->toArray(1);
+        $this->assertNotEmpty($rows);
+        foreach ($rows as $row) {
+            $this->assertIsFloat($row['score']);
+            $this->assertGreaterThanOrEqual(0, $row['score']);
+            // Check the score is rounded to 1 decimal place
+            $scoreStr = (string)$row['score'];
+            if (str_contains($scoreStr, '.')) {
+                $decimalPlaces = strlen(substr($scoreStr, strpos($scoreStr, '.') + 1));
+                $this->assertLessThanOrEqual(2, $decimalPlaces, "Score $scoreStr should have at most 2 decimal places");
+            }
+        }
+
+        self::$client->releaseCollection($collectionName, $dbName);
+        self::$client->dropCollection($collectionName, $dbName);
+        self::$client->dropDatabase($dbName);
     }
 
     public function test_deleteAll()

@@ -642,10 +642,21 @@ class Client extends BaseStub
         string $filter = '',
         ?string $dbName = null,
         ?array $searchParams = null,
+        ?int $placeholderType = null,
+        int $offset = 0,
+        ?string $groupByField = null,
+        ?bool $strictGroupSize = null,
+        ?int $groupSize = null,
+        bool $ignoreGrowing = false,
+        ?string $hints = null,
+        ?int $roundDecimal = null,
+        ?array $exprValues = null,
     ): SearchResult {
         $req = SearchHelper::buildSearchRequest(
             $collectionName, $data, $annsField, $topK,
-            $params, $outputFields, $filter, $dbName ?? '', $searchParams
+            $params, $outputFields, $filter, $dbName ?? '', $searchParams,
+            $placeholderType, $offset, $groupByField, $strictGroupSize,
+            $groupSize, $ignoreGrowing, $hints, $roundDecimal, $exprValues,
         );
         return new SearchResult($this->call('Search', $req, SearchResults::class));
     }
@@ -673,17 +684,28 @@ class Client extends BaseStub
             $outputFlds = $config['outputFields'] ?? [];
             $filter = $config['filter'] ?? '';
             $searchParams = $config['searchParams'] ?? null;
-            
+            $vectorType = $config['placeholderType'] ?? null;
+            $offset = $config['offset'] ?? 0;
+            $groupByField = $config['groupByField'] ?? null;
+            $strictGroupSize = $config['strictGroupSize'] ?? null;
+            $groupSize = $config['groupSize'] ?? null;
+            $ignoreGrowing = $config['ignoreGrowing'] ?? false;
+            $hints = $config['hints'] ?? null;
+            $roundDecimal = $config['roundDecimal'] ?? null;
+            $exprValues = $config['exprValues'] ?? null;
+
             $requests[] = SearchHelper::buildSearchRequest(
                 $collectionName, $vectors, $annsField, $topK,
-                $params, $outputFlds, $filter, $dbName ?? '', $searchParams
+                $params, $outputFlds, $filter, $dbName ?? '', $searchParams,
+                $vectorType, $offset, $groupByField, $strictGroupSize,
+                $groupSize, $ignoreGrowing, $hints, $roundDecimal, $exprValues,
             );
         }
-        
+
         $req = (new HybridSearchRequest())
             ->setCollectionName($collectionName)
             ->setRequests($requests);
-        
+
         if ($dbName) {
             $req->setDbName($dbName);
         }
@@ -693,7 +715,7 @@ class Client extends BaseStub
         if ($outputFields) {
             $req->setOutputFields($outputFields);
         }
-        
+
         return new SearchResult($this->call('HybridSearch', $req, SearchResults::class));
     }
 

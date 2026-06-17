@@ -54,9 +54,10 @@ class SearchResult
      *
      * Each row includes the field values, plus "id" and "score" keys.
      *
+     * @param int|null $roundDecimal Number of decimal places to round scores to.
      * @return array<int, array<string, mixed>> Rows of data.
      */
-    public function toArray(): array
+    public function toArray(?int $roundDecimal = null): array
     {
         $results = $this->raw->getResults();
         if ($results === null) {
@@ -76,6 +77,13 @@ class SearchResult
         $topks = $results->getTopks();
         $topks = $topks ? iterator_to_array($topks) : [];
 
+        // Group by field value (if present)
+        $groupByFieldValue = $results->getGroupByFieldValue();
+        $groupByValues = [];
+        if ($groupByFieldValue !== null) {
+            $groupByValues = DataHelper::extractFieldValues($groupByFieldValue);
+        }
+
         $offset = 0;
         $numQueries = $this->getNumQueries();
         for ($q = 0; $q < $numQueries; $q++) {
@@ -84,7 +92,14 @@ class SearchResult
                 $idx = $offset + $j;
                 if (isset($rows[$idx])) {
                     $rows[$idx]['id'] = $ids[$idx] ?? null;
-                    $rows[$idx]['score'] = $scores[$idx] ?? null;
+                    $score = $scores[$idx] ?? null;
+                    if ($score !== null && $roundDecimal !== null) {
+                        $score = round($score, $roundDecimal);
+                    }
+                    $rows[$idx]['score'] = $score;
+                    if (!empty($groupByValues) && isset($groupByValues[$idx])) {
+                        $rows[$idx]['group_by_field_value'] = $groupByValues[$idx];
+                    }
                 }
             }
             $offset += $k;
